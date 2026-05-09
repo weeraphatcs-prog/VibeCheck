@@ -14,8 +14,7 @@ builder.Services.AddSingleton<TimerService>();
 
 var app = builder.Build();
 
-// Seed demo quiz for development
-if (app.Environment.IsDevelopment())
+// Seed demo quiz
 {
     var svc = app.Services.GetRequiredService<IGameService>();
     svc.CreateQuiz("Demo Quiz", new[]
