@@ -1,0 +1,21 @@
+/* Base — Tailwind handles all styling, Bootstrap removed */
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; }
+
+#blazor-error-ui {
+    background: #E21B3C;
+    color: white;
+    bottom: 0; left: 0; right: 0;
+    padding: 0.6rem 1.25rem;
+    position: fixed;
+    z-index: 1000;
+    display: none;
+}
+#blazor-error-ui .dismiss { cursor: pointer; float: right; font-weight: bold; }
+
+.blazor-error-boundary {
+    background: #b32121;
+    padding: 1rem;
+    color: white;
+}
+.blazor-error-boundary::after { content: "An error has occurred." }
