@@ -1,0 +1,301 @@
+@page "/host"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+@inject IGameService GameService
+@implements IAsyncDisposable
+
+<PageTitle>Host — VibeCheck</PageTitle>
+
+@if (_error != null)
+{
+    <div class="fixed top-4 right-4 bg-error text-on-error px-4 py-3 rounded-xl z-50 flex items-center gap-3 shadow-lg">
+        <span class="material-symbols-outlined">error</span>
+        <span>@_error</span>
+        <button @onclick="() => _error = null" class="ml-2 font-bold text-lg leading-none">✕</button>
+    </div>
+}
+
+@switch (_phase)
+{
+    case HostPhase.SelectQuiz:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-6 p-gutter">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="material-symbols-outlined text-primary text-4xl">sensors</span>
+                <span class="font-headline text-headline-md text-primary font-black tracking-tighter">VibeCheck</span>
+            </div>
+            <h1 class="text-body-lg font-bold text-on-surface">Select a quiz to host</h1>
+            <div class="w-full max-w-md flex flex-col gap-3">
+                @foreach (var quiz in _quizzes)
+                {
+                    var q = quiz;
+                    <button @onclick="() => CreateSession(q.Id)"
+                            class="w-full bg-primary-container text-on-primary-container rounded-xl px-6 py-4 text-left flex items-center justify-between hover:bg-primary hover:text-on-primary transition-colors">
+                        <div>
+                            <p class="font-bold text-body-lg">@quiz.Title</p>
+                            <p class="text-body-md opacity-75">@quiz.Questions.Count question@(quiz.Questions.Count != 1 ? "s" : "")</p>
+                        </div>
+                        <span class="material-symbols-outlined text-3xl">play_circle</span>
+                    </button>
+                }
+                @if (!_quizzes.Any())
+                {
+                    <p class="text-on-surface-variant text-center text-body-md">No quizzes available.</p>
+                }
+            </div>
+        </div>
+        break;
+
+    case HostPhase.Lobby:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-6 p-gutter">
+            <p class="text-on-surface-variant text-body-md font-medium tracking-wide uppercase">Game PIN</p>
+            <div class="text-headline-pin text-primary font-black tracking-widest select-all">@_pin</div>
+            <p class="text-on-surface-variant text-body-md">Join at <span class="font-bold text-primary">@Nav.BaseUri.TrimEnd('/')@("/play")</span></p>
+            <div class="bg-surface-container rounded-2xl px-8 py-5 flex flex-col items-center gap-2 w-full max-w-sm">
+                <span class="text-headline-md font-black text-primary">@_playerCount</span>
+                <span class="text-on-surface-variant text-body-md">player@(_playerCount != 1 ? "s" : "") joined</span>
+                @if (_players.Any())
+                {
+                    <div class="flex flex-wrap gap-2 mt-2 justify-center">
+                        @foreach (var name in _players)
+                        {
+                            <span class="bg-primary-fixed text-on-primary-fixed px-3 py-1 rounded-full text-body-md font-medium">@name</span>
+                        }
+                    </div>
+                }
+            </div>
+            <button @onclick="StartGame" disabled="@(_playerCount == 0)"
+                    class="bg-secondary text-on-secondary font-bold text-body-lg px-10 py-4 rounded-full disabled:opacity-40 hover:opacity-90 transition-opacity">
+                Start Game
+            </button>
+            <p class="text-on-surface-variant text-body-md">@_quizTitle</p>
+        </div>
+        break;
+
+    case HostPhase.Question:
+        <div class="flex flex-col min-h-screen bg-primary">
+            <div class="flex items-center justify-between px-6 py-4 text-on-primary">
+                <span class="text-body-md font-medium opacity-75">Q @(_question!.Index + 1) / @_question.Total</span>
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined">timer</span>
+                    <span class="text-label-xl font-black">@_secsLeft</span>
+                </div>
+                <span class="text-body-md font-medium opacity-75">@_answeredCount / @_playerCount answered</span>
+            </div>
+            <div class="flex-1 flex flex-col items-center justify-center gap-6 px-6 pb-6">
+                <div class="bg-on-primary text-primary rounded-2xl px-8 py-6 w-full max-w-2xl text-center shadow">
+                    <p class="text-body-lg font-bold">@_question.Text</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4 w-full max-w-2xl">
+                    @foreach (var opt in _question.Options)
+                    {
+                        <div class="@OptionBg(opt.Index) text-white rounded-2xl px-5 py-4 flex items-center gap-3 shadow">
+                            <span class="material-symbols-outlined text-2xl symbol-fill">@OptionIcon(opt.Index)</span>
+                            <span class="font-bold text-body-lg">@opt.Text</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        break;
+
+    case HostPhase.ShowAnswers:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-6 p-gutter">
+            @if (_question != null && _correctIndex >= 0 && _correctIndex < _question.Options.Count)
+            {
+                <div class="flex items-center gap-3 text-secondary">
+                    <span class="material-symbols-outlined text-4xl symbol-fill">check_circle</span>
+                    <span class="text-headline-md font-black">@_question.Options[_correctIndex].Text</span>
+                </div>
+            }
+            <p class="text-on-surface-variant text-body-md">Correct answer</p>
+            <div class="bg-surface-container rounded-2xl px-8 py-5 w-full max-w-sm">
+                <p class="text-body-md font-bold text-on-surface mb-3">Top scores</p>
+                @foreach (var (entry, i) in _scores.Take(5).Select((e, i) => (e, i)))
+                {
+                    <div class="flex items-center justify-between py-1">
+                        <span class="text-body-md text-on-surface">@(i + 1). @entry.Nickname</span>
+                        <span class="font-black text-primary text-body-lg">@entry.Total</span>
+                    </div>
+                }
+            </div>
+            <button @onclick="NextStep"
+                    class="bg-primary text-on-primary font-bold text-body-lg px-10 py-4 rounded-full hover:opacity-90 transition-opacity">
+                Next
+            </button>
+        </div>
+        break;
+
+    case HostPhase.Leaderboard:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-6 p-gutter">
+            <span class="material-symbols-outlined text-primary text-5xl">leaderboard</span>
+            <h2 class="text-headline-md font-black text-on-surface">Leaderboard</h2>
+            <div class="w-full max-w-sm flex flex-col gap-2">
+                @foreach (var entry in _leaderboard.Take(5))
+                {
+                    <div class="flex items-center gap-3 bg-surface-container rounded-xl px-5 py-3">
+                        <span class="text-body-lg font-black text-primary w-6">@RankEmoji(entry.Rank)</span>
+                        <span class="flex-1 text-body-lg font-medium text-on-surface">@entry.Nickname</span>
+                        <span class="text-body-lg font-black text-primary">@entry.Score</span>
+                    </div>
+                }
+            </div>
+            <button @onclick="NextStep"
+                    class="bg-primary text-on-primary font-bold text-body-lg px-10 py-4 rounded-full hover:opacity-90 transition-opacity">
+                Next Question
+            </button>
+        </div>
+        break;
+
+    case HostPhase.Finished:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-6 p-gutter">
+            <span class="material-symbols-outlined text-primary text-6xl symbol-fill">emoji_events</span>
+            <h2 class="text-headline-md font-black text-on-surface">Game Over!</h2>
+            <div class="w-full max-w-sm flex flex-col gap-2">
+                @foreach (var entry in _leaderboard.Take(5))
+                {
+                    <div class="flex items-center gap-3 @(entry.Rank == 1 ? "bg-secondary-container" : "bg-surface-container") rounded-xl px-5 py-3">
+                        <span class="text-body-lg font-black text-primary w-6">@RankEmoji(entry.Rank)</span>
+                        <span class="flex-1 text-body-lg font-medium text-on-surface">@entry.Nickname</span>
+                        <span class="text-body-lg font-black text-primary">@entry.Score</span>
+                    </div>
+                }
+            </div>
+            <button @onclick="GoHome"
+                    class="bg-primary text-on-primary font-bold text-body-lg px-10 py-4 rounded-full hover:opacity-90 transition-opacity">
+                Play Again
+            </button>
+        </div>
+        break;
+}
+
+@code {
+    private enum HostPhase { SelectQuiz, Lobby, Question, ShowAnswers, Leaderboard, Finished }
+
+    HubConnection? _hub;
+    HostPhase _phase = HostPhase.SelectQuiz;
+    string? _error;
+    List<Quiz> _quizzes = [];
+
+    string _pin = "";
+    string _quizTitle = "";
+    int _playerCount = 0;
+    readonly List<string> _players = [];
+
+    QuestionPayload? _question;
+    int _secsLeft;
+    int _answeredCount;
+
+    int _correctIndex = -1;
+    List<ScoreEntry> _scores = [];
+
+    List<LeaderEntry> _leaderboard = [];
+
+    protected override void OnInitialized()
+    {
+        _quizzes = GameService.GetAllQuizzes().ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _hub = new HubConnectionBuilder()
+            .WithUrl(Nav.ToAbsoluteUri("/gamehub"))
+            .WithAutomaticReconnect()
+            .AddJsonProtocol(o => o.PayloadSerializerOptions.PropertyNameCaseInsensitive = true)
+            .Build();
+
+        _hub.On<string, string, Guid>("SessionCreated", (pin, title, _) => InvokeAsync(() =>
+        {
+            _pin = pin; _quizTitle = title; _phase = HostPhase.Lobby; StateHasChanged();
+        }));
+
+        _hub.On<string, int>("PlayerJoined", (nickname, count) => InvokeAsync(() =>
+        {
+            _players.Add(nickname); _playerCount = count; StateHasChanged();
+        }));
+
+        _hub.On<string, int>("PlayerLeft", (nickname, count) => InvokeAsync(() =>
+        {
+            _players.Remove(nickname); _playerCount = count; StateHasChanged();
+        }));
+
+        _hub.On("GameStarted", () => InvokeAsync(StateHasChanged));
+
+        _hub.On<QuestionPayload>("QuestionStarted", payload => InvokeAsync(() =>
+        {
+            _question = payload; _secsLeft = payload.TimeLimitSec; _answeredCount = 0;
+            _phase = HostPhase.Question; StateHasChanged();
+        }));
+
+        _hub.On<int>("TimerTick", secs => InvokeAsync(() => { _secsLeft = secs; StateHasChanged(); }));
+
+        _hub.On<int, List<ScoreEntry>>("QuestionEnded", (correctIndex, scores) => InvokeAsync(() =>
+        {
+            _correctIndex = correctIndex; _scores = scores; _phase = HostPhase.ShowAnswers; StateHasChanged();
+        }));
+
+        _hub.On<List<LeaderEntry>>("LeaderboardUpdate", entries => InvokeAsync(() =>
+        {
+            _leaderboard = entries; _phase = HostPhase.Leaderboard; StateHasChanged();
+        }));
+
+        _hub.On<List<LeaderEntry>>("GameFinished", entries => InvokeAsync(() =>
+        {
+            _leaderboard = entries; _phase = HostPhase.Finished; StateHasChanged();
+        }));
+
+        _hub.On<string>("Error", msg => InvokeAsync(() => { _error = msg; StateHasChanged(); }));
+
+        await _hub.StartAsync();
+    }
+
+    private async Task CreateSession(Guid quizId)
+    {
+        if (_hub?.State != HubConnectionState.Connected) return;
+        await _hub.SendAsync("HostCreateSession", quizId);
+    }
+
+    private async Task StartGame()
+    {
+        if (_hub?.State != HubConnectionState.Connected) return;
+        await _hub.SendAsync("StartGame", _pin);
+    }
+
+    private async Task NextStep()
+    {
+        if (_hub?.State != HubConnectionState.Connected) return;
+        await _hub.SendAsync("NextStep", _pin);
+    }
+
+    private static string OptionBg(int i) => i switch
+    {
+        0 => "bg-k-red",
+        1 => "bg-k-blue",
+        2 => "bg-k-yellow",
+        _ => "bg-k-green",
+    };
+
+    private static string OptionIcon(int i) => i switch
+    {
+        0 => "change_history",
+        1 => "diamond",
+        2 => "circle",
+        _ => "square",
+    };
+
+    private static string RankEmoji(int rank) => rank switch
+    {
+        1 => "🥇",
+        2 => "🥈",
+        3 => "🥉",
+        _ => $"{rank}.",
+    };
+
+    private void GoHome() => Nav.NavigateTo("/host");
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub != null) await _hub.DisposeAsync();
+    }
+}

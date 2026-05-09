@@ -121,14 +121,12 @@ public class GameHub : Hub
     private async Task SendQuestionToGroup(string pin, GameSession session)
     {
         var q = session.Quiz.Questions[session.CurrentIndex];
-        var payload = new
-        {
-            index = session.CurrentIndex,
-            total = session.Quiz.Questions.Count,
-            text = q.Text,
-            options = q.Options.Select((o, i) => new { index = i, text = o.Text }).ToList(),
-            timeLimitSec = q.TimeLimitSec,
-        };
+        var payload = new QuestionPayload(
+            session.CurrentIndex,
+            session.Quiz.Questions.Count,
+            q.Text,
+            q.Options.Select((o, i) => new OptionDto(i, o.Text)).ToList(),
+            q.TimeLimitSec);
         await _hubContext.Clients.Group(pin).SendAsync("QuestionStarted", payload);
 
         _timerService.StartTimer(pin, q.TimeLimitSec,
@@ -149,7 +147,7 @@ public class GameHub : Hub
         int correctIndex = q.Options.FindIndex(o => o.IsCorrect);
         var scores = session.Players.Values
             .OrderByDescending(p => p.TotalScore)
-            .Select(p => new { nickname = p.Nickname, total = p.TotalScore })
+            .Select(p => new ScoreEntry(p.Nickname, p.TotalScore))
             .ToList();
 
         await _hubContext.Clients.Group(pin).SendAsync("QuestionEnded", correctIndex, scores);
@@ -159,7 +157,7 @@ public class GameHub : Hub
     {
         var leaderboard = session.Players.Values
             .OrderByDescending(p => p.TotalScore)
-            .Select((p, i) => new { rank = i + 1, nickname = p.Nickname, score = p.TotalScore })
+            .Select((p, i) => new LeaderEntry(i + 1, p.Nickname, p.TotalScore))
             .ToList();
 
         var ev = finished ? "GameFinished" : "LeaderboardUpdate";

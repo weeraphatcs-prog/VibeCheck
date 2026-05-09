@@ -1,0 +1,368 @@
+@page "/play"
+@page "/play/{PinParam}"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<PageTitle>Play — VibeCheck</PageTitle>
+
+@switch (_phase)
+{
+    case PlayerPhase.Join:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-6 p-gutter">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="material-symbols-outlined text-primary text-4xl">sensors</span>
+                <span class="font-headline text-headline-md text-primary font-black tracking-tighter">VibeCheck</span>
+            </div>
+            <div class="bg-surface-container rounded-2xl px-8 py-8 w-full max-w-sm flex flex-col gap-4">
+                <div class="flex flex-col gap-1">
+                    <label class="text-body-md font-medium text-on-surface-variant">Game PIN</label>
+                    <input @bind="_pinInput" @bind:event="oninput" placeholder="123456"
+                           class="bg-surface-container-high text-on-surface rounded-xl px-4 py-3 text-label-xl font-black tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                           maxlength="6" inputmode="numeric" />
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-body-md font-medium text-on-surface-variant">Nickname</label>
+                    <input @bind="_nickname" @bind:event="oninput" placeholder="Your name"
+                           class="bg-surface-container-high text-on-surface rounded-xl px-4 py-3 text-body-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                           maxlength="20" @onkeydown="OnEnterJoin" />
+                </div>
+                @if (_error != null)
+                {
+                    <p class="text-error text-body-md font-medium">@_error</p>
+                }
+                <button @onclick="JoinGame" disabled="@(_pinInput.Length != 6 || _nickname.Trim().Length == 0 || _joining)"
+                        class="bg-primary text-on-primary font-bold text-body-lg py-4 rounded-full disabled:opacity-40 hover:opacity-90 transition-opacity mt-2">
+                    @if (_joining) { <span>Joining...</span> } else { <span>Join</span> }
+                </button>
+            </div>
+        </div>
+        break;
+
+    case PlayerPhase.Lobby:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-4 p-gutter">
+            <span class="material-symbols-outlined text-primary text-6xl symbol-fill">waving_hand</span>
+            <h2 class="text-headline-md font-black text-on-surface">You're in!</h2>
+            <p class="text-body-lg text-on-surface-variant">Hi, <span class="font-bold text-primary">@_nickname</span></p>
+            <div class="bg-surface-container rounded-2xl px-8 py-6 flex flex-col items-center gap-2 mt-4">
+                <span class="text-headline-md font-black text-primary">@_playerCount</span>
+                <span class="text-on-surface-variant text-body-md">player@(_playerCount != 1 ? "s" : "") in the lobby</span>
+            </div>
+            <p class="text-on-surface-variant text-body-md mt-2">Waiting for the host to start...</p>
+        </div>
+        break;
+
+    case PlayerPhase.Question:
+        <div class="flex flex-col min-h-screen bg-primary">
+            <div class="px-6 py-4 flex items-center justify-between text-on-primary">
+                <span class="text-body-md opacity-75">Q @(_question!.Index + 1) / @_question.Total</span>
+                <div class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">timer</span>
+                    <span class="text-label-xl font-black">@_secsLeft</span>
+                </div>
+            </div>
+            <div class="h-1.5 bg-on-primary/20">
+                <div class="h-full bg-on-primary transition-all duration-1000"
+                     style="width: @(TimerPct())%"></div>
+            </div>
+            <div class="flex-1 flex flex-col items-center justify-center px-4 py-6 gap-4">
+                <div class="bg-on-primary/10 rounded-2xl px-6 py-5 w-full max-w-md text-center">
+                    <p class="text-on-primary font-bold text-body-lg">@_question.Text</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3 w-full max-w-md">
+                    @foreach (var opt in _question.Options)
+                    {
+                        var idx = opt.Index;
+                        var isSelected = _selectedOption == idx;
+                        <button @onclick="() => SubmitAnswer(idx)"
+                                disabled="@(_selectedOption >= 0)"
+                                class="@OptionBg(idx) @(isSelected ? "ring-4 ring-white scale-95" : "") text-white rounded-2xl px-4 py-5 flex items-center gap-2 font-bold text-body-md disabled:opacity-60 hover:brightness-110 transition-all shadow">
+                            <span class="material-symbols-outlined symbol-fill">@OptionIcon(idx)</span>
+                            <span>@opt.Text</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+        break;
+
+    case PlayerPhase.Answered:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-4 p-gutter bg-primary">
+            <span class="material-symbols-outlined text-on-primary text-6xl symbol-fill">check_circle</span>
+            <p class="text-on-primary text-headline-md font-black">Answer locked in!</p>
+            <p class="text-on-primary/70 text-body-lg">Waiting for results...</p>
+        </div>
+        break;
+
+    case PlayerPhase.ShowAnswers:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-6 p-gutter">
+            @if (_wasCorrect)
+            {
+                <span class="material-symbols-outlined text-secondary text-7xl symbol-fill">check_circle</span>
+                <p class="text-headline-md font-black text-secondary">Correct!</p>
+                @if (_scoreGain > 0)
+                {
+                    <p class="text-body-lg text-on-surface-variant">+@_scoreGain points</p>
+                }
+            }
+            else
+            {
+                <span class="material-symbols-outlined text-error text-7xl symbol-fill">cancel</span>
+                <p class="text-headline-md font-black text-error">Wrong</p>
+            }
+            @if (_question != null && _correctIndex >= 0)
+            {
+                <div class="bg-surface-container rounded-2xl px-6 py-4 flex items-center gap-3">
+                    <span class="text-on-surface-variant text-body-md">Answer:</span>
+                    <span class="font-bold text-body-lg text-on-surface">@_question.Options[_correctIndex].Text</span>
+                </div>
+            }
+            <p class="text-on-surface-variant text-body-md">Total: <span class="font-black text-primary">@_currentScore</span></p>
+            <p class="text-on-surface-variant text-body-md">Waiting for leaderboard...</p>
+        </div>
+        break;
+
+    case PlayerPhase.Leaderboard:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-6 p-gutter">
+            <span class="material-symbols-outlined text-primary text-5xl">leaderboard</span>
+            <h2 class="text-headline-md font-black text-on-surface">Leaderboard</h2>
+            <div class="w-full max-w-sm flex flex-col gap-2">
+                @foreach (var entry in _leaderboard.Take(5))
+                {
+                    var isMe = entry.Nickname == _nickname;
+                    <div class="flex items-center gap-3 @(isMe ? "bg-primary text-on-primary" : "bg-surface-container text-on-surface") rounded-xl px-5 py-3">
+                        <span class="w-6 text-body-lg font-black">@RankEmoji(entry.Rank)</span>
+                        <span class="flex-1 font-medium text-body-lg">@entry.Nickname@(isMe ? " ◀" : "")</span>
+                        <span class="font-black text-body-lg">@entry.Score</span>
+                    </div>
+                }
+            </div>
+            @{
+                var myEntry = _leaderboard.FirstOrDefault(e => e.Nickname == _nickname);
+                if (myEntry != null && myEntry.Rank > 5)
+                {
+                    <div class="flex items-center gap-3 bg-primary text-on-primary rounded-xl px-5 py-3 w-full max-w-sm">
+                        <span class="w-6 font-black text-body-lg">@myEntry.Rank.</span>
+                        <span class="flex-1 font-medium text-body-lg">@myEntry.Nickname ◀</span>
+                        <span class="font-black text-body-lg">@myEntry.Score</span>
+                    </div>
+                }
+            }
+            <p class="text-on-surface-variant text-body-md">Waiting for next question...</p>
+        </div>
+        break;
+
+    case PlayerPhase.Finished:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-6 p-gutter">
+            <span class="material-symbols-outlined text-primary text-6xl symbol-fill">emoji_events</span>
+            <h2 class="text-headline-md font-black text-on-surface">Game Over!</h2>
+            @{
+                var me = _leaderboard.FirstOrDefault(e => e.Nickname == _nickname);
+            }
+            @if (me != null)
+            {
+                <div class="bg-surface-container rounded-2xl px-8 py-6 flex flex-col items-center gap-1">
+                    <p class="text-on-surface-variant text-body-md">Your rank</p>
+                    <p class="text-display-lg font-black text-primary">@RankEmoji(me.Rank)</p>
+                    <p class="text-body-lg font-bold text-on-surface">@me.Score pts</p>
+                </div>
+            }
+            <div class="w-full max-w-sm flex flex-col gap-2">
+                @foreach (var entry in _leaderboard.Take(3))
+                {
+                    <div class="flex items-center gap-3 @(entry.Nickname == _nickname ? "bg-primary text-on-primary" : "bg-surface-container text-on-surface") rounded-xl px-5 py-3">
+                        <span class="w-6 font-black">@RankEmoji(entry.Rank)</span>
+                        <span class="flex-1 font-medium">@entry.Nickname</span>
+                        <span class="font-black">@entry.Score</span>
+                    </div>
+                }
+            </div>
+            <button @onclick="GoPlay"
+                    class="bg-primary text-on-primary font-bold text-body-lg px-10 py-4 rounded-full hover:opacity-90 transition-opacity">
+                Play Again
+            </button>
+        </div>
+        break;
+
+    case PlayerPhase.HostLeft:
+        <div class="flex flex-col items-center justify-center min-h-screen gap-4 p-gutter">
+            <span class="material-symbols-outlined text-error text-6xl">error</span>
+            <h2 class="text-headline-md font-black text-on-surface">Host Disconnected</h2>
+            <p class="text-on-surface-variant text-body-md">The host left the game.</p>
+            <button @onclick="GoPlay"
+                    class="bg-primary text-on-primary font-bold text-body-lg px-10 py-4 rounded-full hover:opacity-90 transition-opacity mt-4">
+                Back to Home
+            </button>
+        </div>
+        break;
+}
+
+@code {
+    [Parameter] public string? PinParam { get; set; }
+
+    private enum PlayerPhase { Join, Lobby, Question, Answered, ShowAnswers, Leaderboard, Finished, HostLeft }
+
+    HubConnection? _hub;
+    PlayerPhase _phase = PlayerPhase.Join;
+    string? _error;
+    bool _joining;
+
+    string _pinInput = "";
+    string _nickname = "";
+    string _pin = "";
+    int _playerCount = 0;
+
+    QuestionPayload? _question;
+    int _secsLeft;
+    int _selectedOption = -1;
+
+    int _correctIndex = -1;
+    bool _wasCorrect;
+    int _previousScore;
+    int _currentScore;
+    int _scoreGain;
+
+    List<LeaderEntry> _leaderboard = [];
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrEmpty(PinParam))
+            _pinInput = PinParam;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _hub = new HubConnectionBuilder()
+            .WithUrl(Nav.ToAbsoluteUri("/gamehub"))
+            .WithAutomaticReconnect()
+            .AddJsonProtocol(o => o.PayloadSerializerOptions.PropertyNameCaseInsensitive = true)
+            .Build();
+
+        _hub.On<string, string>("JoinedGame", (pin, nick) => InvokeAsync(() =>
+        {
+            _pin = pin; _nickname = nick; _joining = false; _error = null;
+            _phase = PlayerPhase.Lobby; StateHasChanged();
+        }));
+
+        _hub.On<string, int>("PlayerJoined", (_, count) => InvokeAsync(() =>
+        {
+            _playerCount = count; StateHasChanged();
+        }));
+
+        _hub.On<string, int>("PlayerLeft", (_, count) => InvokeAsync(() =>
+        {
+            _playerCount = count; StateHasChanged();
+        }));
+
+        _hub.On("GameStarted", () => InvokeAsync(StateHasChanged));
+
+        _hub.On<QuestionPayload>("QuestionStarted", payload => InvokeAsync(() =>
+        {
+            _question = payload; _secsLeft = payload.TimeLimitSec;
+            _selectedOption = -1; _phase = PlayerPhase.Question; StateHasChanged();
+        }));
+
+        _hub.On<int>("TimerTick", secs => InvokeAsync(() => { _secsLeft = secs; StateHasChanged(); }));
+
+        _hub.On("AnswerAccepted", () => InvokeAsync(() =>
+        {
+            _phase = PlayerPhase.Answered; StateHasChanged();
+        }));
+
+        _hub.On<int, List<ScoreEntry>>("QuestionEnded", (correctIndex, scores) => InvokeAsync(() =>
+        {
+            _correctIndex = correctIndex;
+            _wasCorrect = _selectedOption == correctIndex;
+            var myEntry = scores.FirstOrDefault(s => s.Nickname == _nickname);
+            _previousScore = _currentScore;
+            _currentScore = myEntry?.Total ?? _currentScore;
+            _scoreGain = _currentScore - _previousScore;
+            _phase = PlayerPhase.ShowAnswers; StateHasChanged();
+        }));
+
+        _hub.On<List<LeaderEntry>>("LeaderboardUpdate", entries => InvokeAsync(() =>
+        {
+            _leaderboard = entries; _phase = PlayerPhase.Leaderboard; StateHasChanged();
+        }));
+
+        _hub.On<List<LeaderEntry>>("GameFinished", entries => InvokeAsync(() =>
+        {
+            _leaderboard = entries; _phase = PlayerPhase.Finished; StateHasChanged();
+        }));
+
+        _hub.On("HostLeft", () => InvokeAsync(() =>
+        {
+            _phase = PlayerPhase.HostLeft; StateHasChanged();
+        }));
+
+        _hub.On<string>("Error", msg => InvokeAsync(() =>
+        {
+            _error = msg; _joining = false; StateHasChanged();
+        }));
+
+        await _hub.StartAsync();
+
+        if (!string.IsNullOrEmpty(PinParam) && !string.IsNullOrEmpty(_nickname))
+            await JoinGame();
+    }
+
+    private async Task JoinGame()
+    {
+        if (_hub?.State != HubConnectionState.Connected) return;
+        var nick = _nickname.Trim();
+        if (nick.Length == 0 || _pinInput.Length != 6) return;
+        _joining = true; _error = null;
+        await _hub.SendAsync("JoinGame", _pinInput, nick);
+    }
+
+    private async Task SubmitAnswer(int optionIndex)
+    {
+        if (_hub?.State != HubConnectionState.Connected || _selectedOption >= 0) return;
+        _selectedOption = optionIndex;
+        await _hub.SendAsync("SubmitAnswer", _pin, optionIndex);
+    }
+
+    private async Task OnEnterJoin(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await JoinGame();
+    }
+
+    private double TimerPct()
+    {
+        if (_question == null || _question.TimeLimitSec == 0) return 0;
+        return (double)_secsLeft / _question.TimeLimitSec * 100;
+    }
+
+    private static string OptionBg(int i) => i switch
+    {
+        0 => "bg-k-red",
+        1 => "bg-k-blue",
+        2 => "bg-k-yellow",
+        _ => "bg-k-green",
+    };
+
+    private static string OptionIcon(int i) => i switch
+    {
+        0 => "change_history",
+        1 => "diamond",
+        2 => "circle",
+        _ => "square",
+    };
+
+    private static string RankEmoji(int rank) => rank switch
+    {
+        1 => "🥇",
+        2 => "🥈",
+        3 => "🥉",
+        _ => $"{rank}.",
+    };
+
+    private void GoPlay() => Nav.NavigateTo("/play");
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub != null) await _hub.DisposeAsync();
+    }
+}
