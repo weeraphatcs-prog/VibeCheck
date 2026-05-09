@@ -23,11 +23,16 @@ public interface IGameService
     bool RemoveSession(string pin);
     IEnumerable<GameSession> GetAllSessions();
 
+    GameSession? RegisterHost(string pin, string connectionId);
+    string? FindPinByConnection(string connectionId);
+
     JoinResult JoinSession(string pin, string connectionId, string nickname);
     void RemovePlayer(string connectionId, string pin);
     AnswerResult SubmitAnswer(string pin, string connectionId, int optionIndex);
+    bool AllPlayersAnswered(string pin);
 
     GameSession? StartGame(string pin);
+    GameSession? EndQuestion(string pin);
     GameSession? NextStep(string pin);
     GameSession? EndGame(string pin);
 }

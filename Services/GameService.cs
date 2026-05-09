@@ -138,6 +138,47 @@ public class GameService : IGameService
         return session;
     }
 
+    public GameSession? RegisterHost(string pin, string connectionId)
+    {
+        var session = GetSession(pin);
+        if (session == null) return null;
+        session.HostConnectionId = connectionId;
+        return session;
+    }
+
+    public string? FindPinByConnection(string connectionId)
+    {
+        foreach (var session in _sessions.Values)
+        {
+            if (session.HostConnectionId == connectionId) return session.Pin;
+            if (session.Players.ContainsKey(connectionId)) return session.Pin;
+        }
+        return null;
+    }
+
+    public bool AllPlayersAnswered(string pin)
+    {
+        var session = GetSession(pin);
+        if (session == null || session.Players.Count == 0) return false;
+        return session.Players.Values.All(p => p.HasAnswered);
+    }
+
+    public GameSession? EndQuestion(string pin)
+    {
+        var session = GetSession(pin);
+        if (session == null) return null;
+        lock (session)
+        {
+            if (session.Phase != GamePhase.ShowQuestion) return null;
+            session.Phase = GamePhase.ShowAnswers;
+        }
+        var q = session.Quiz.Questions[session.CurrentIndex];
+        foreach (var player in session.Players.Values)
+            player.TotalScore += CalcScore(player, q, session);
+        session.LastActivityAt = DateTime.UtcNow;
+        return session;
+    }
+
     public GameSession? EndGame(string pin)
     {
         var session = GetSession(pin);
