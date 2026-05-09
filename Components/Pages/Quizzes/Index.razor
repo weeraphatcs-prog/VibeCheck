@@ -1,0 +1,73 @@
+@page "/quizzes"
+@rendermode InteractiveServer
+@inject IGameService GameService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Quizzes — VibeCheck</PageTitle>
+
+<div class="flex flex-col min-h-screen p-gutter max-w-2xl mx-auto gap-4 pb-8">
+    <div class="flex items-center justify-between pt-6">
+        <div class="flex items-center gap-3">
+            <a href="/" class="text-on-surface-variant hover:text-primary transition-colors">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+            <h1 class="text-headline-md font-black text-on-surface">Quizzes</h1>
+        </div>
+        <a href="/quizzes/create"
+           class="flex items-center gap-1 bg-primary text-on-primary font-bold px-5 py-2.5 rounded-full text-body-md hover:opacity-90 transition-opacity">
+            <span class="material-symbols-outlined text-lg">add</span>
+            New Quiz
+        </a>
+    </div>
+
+    @if (!_quizzes.Any())
+    {
+        <div class="flex flex-col items-center gap-4 py-20 text-on-surface-variant">
+            <span class="material-symbols-outlined text-6xl">quiz</span>
+            <p class="text-body-lg font-medium">No quizzes yet</p>
+            <a href="/quizzes/create" class="text-primary font-bold text-body-md hover:underline">Create your first quiz</a>
+        </div>
+    }
+    else
+    {
+        @foreach (var quiz in _quizzes)
+        {
+            var q = quiz;
+            <div class="bg-surface-container rounded-2xl px-6 py-4 flex items-center gap-4">
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-body-lg text-on-surface truncate">@quiz.Title</p>
+                    <p class="text-body-md text-on-surface-variant">@quiz.Questions.Count question@(quiz.Questions.Count != 1 ? "s" : "")</p>
+                </div>
+                <a href="/host"
+                   class="flex items-center gap-1 bg-secondary text-on-secondary font-bold px-4 py-2 rounded-full text-body-md hover:opacity-90 transition-opacity shrink-0">
+                    <span class="material-symbols-outlined text-sm">play_arrow</span>
+                    Host
+                </a>
+                <button @onclick="() => Delete(q.Id)"
+                        class="p-2 text-on-surface-variant hover:text-error hover:bg-error-container rounded-xl transition-colors shrink-0">
+                    <span class="material-symbols-outlined">delete</span>
+                </button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    List<Quiz> _quizzes = [];
+
+    protected override void OnInitialized()
+    {
+        Reload();
+    }
+
+    private async Task Delete(Guid id)
+    {
+        bool ok = await JS.InvokeAsync<bool>("confirm", "Delete this quiz?");
+        if (!ok) return;
+        GameService.DeleteQuiz(id);
+        Reload();
+    }
+
+    private void Reload() => _quizzes = GameService.GetAllQuizzes().ToList();
+}
