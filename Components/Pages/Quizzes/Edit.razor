@@ -1,0 +1,189 @@
+@page "/quizzes/{Id:guid}/edit"
+@rendermode InteractiveServer
+@inject IGameService GameService
+@inject NavigationManager Nav
+
+<PageTitle>Edit Quiz — VibeCheck</PageTitle>
+
+<div class="flex flex-col min-h-screen p-gutter max-w-2xl mx-auto gap-5 pb-28">
+    <div class="flex items-center gap-3 pt-6">
+        <a href="/quizzes" class="text-on-surface-variant hover:text-primary transition-colors">
+            <span class="material-symbols-outlined">arrow_back</span>
+        </a>
+        <h1 class="text-headline-md font-black text-on-surface">Edit Quiz</h1>
+    </div>
+
+    <div class="flex flex-col gap-1">
+        <label class="text-body-md font-medium text-on-surface-variant">Quiz Title</label>
+        <input @bind="_title" @bind:event="oninput"
+               placeholder="e.g. General Knowledge"
+               maxlength="100"
+               class="bg-surface-container text-on-surface rounded-xl px-4 py-3 text-body-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+    </div>
+
+    @for (int qi = 0; qi < _questions.Count; qi++)
+    {
+        var q = _questions[qi];
+        var qIdx = qi;
+        <div @key="q.Id" class="bg-surface-container rounded-2xl p-5 flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <p class="font-bold text-body-lg text-on-surface">Question @(qIdx + 1)</p>
+                <div class="flex items-center gap-2">
+                    <select @bind="q.TimeLimitSec"
+                            class="bg-surface-container-high text-on-surface rounded-lg px-3 py-1.5 text-body-md focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="5">5s</option>
+                        <option value="10">10s</option>
+                        <option value="15">15s</option>
+                        <option value="20">20s</option>
+                        <option value="30">30s</option>
+                        <option value="60">60s</option>
+                    </select>
+                    @if (_questions.Count > 1)
+                    {
+                        <button @onclick="() => RemoveQuestion(qIdx)"
+                                class="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container rounded-lg transition-colors">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <input @bind="q.Text" @bind:event="oninput"
+                   placeholder="Question text"
+                   class="bg-surface-container-high text-on-surface rounded-xl px-4 py-3 text-body-md focus:outline-none focus:ring-2 focus:ring-primary" />
+
+            <div class="grid grid-cols-2 gap-3">
+                @for (int oi = 0; oi < 4; oi++)
+                {
+                    var oIdx = oi;
+                    <label class="flex items-center gap-2 rounded-xl p-3 cursor-pointer border-2 transition-colors
+                                  @(q.CorrectIndex == oIdx ? "bg-secondary-container border-secondary" : "bg-surface-container-high border-transparent")">
+                        <input type="radio"
+                               name="correct-@q.Id"
+                               checked="@(q.CorrectIndex == oIdx)"
+                               @onchange="() => q.CorrectIndex = oIdx"
+                               class="accent-primary shrink-0" />
+                        <span class="material-symbols-outlined text-sm symbol-fill @OptionIconColor(oIdx)">@OptionIcon(oIdx)</span>
+                        <input @bind="q.Options[oIdx]" @bind:event="oninput"
+                               placeholder="Option @(oIdx + 1)"
+                               class="bg-transparent flex-1 min-w-0 focus:outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50" />
+                    </label>
+                }
+            </div>
+            <p class="text-body-md text-on-surface-variant text-xs">Select radio button to mark correct answer</p>
+        </div>
+    }
+
+    @if (_questions.Count < GameConstants.MaxQuestionsPerQuiz)
+    {
+        <button @onclick="AddQuestion"
+                class="flex items-center justify-center gap-2 border-2 border-dashed border-outline-variant text-on-surface-variant rounded-2xl py-4 hover:border-primary hover:text-primary transition-colors">
+            <span class="material-symbols-outlined">add_circle</span>
+            Add Question
+        </button>
+    }
+
+    @if (_error != null)
+    {
+        <div class="flex items-center gap-2 text-error bg-error-container px-4 py-3 rounded-xl">
+            <span class="material-symbols-outlined">error</span>
+            <p class="text-body-md font-medium">@_error</p>
+        </div>
+    }
+</div>
+
+<div class="fixed bottom-0 left-0 right-0 bg-surface-container-high border-t border-outline-variant px-gutter py-4 flex items-center justify-between gap-4">
+    <p class="text-on-surface-variant text-body-md">@_questions.Count question@(_questions.Count != 1 ? "s" : "")</p>
+    <button @onclick="Submit"
+            class="bg-primary text-on-primary font-bold text-body-lg px-10 py-3 rounded-full hover:opacity-90 transition-opacity">
+        Save Changes
+    </button>
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private class QuestionFormModel
+    {
+        public Guid Id { get; } = Guid.NewGuid();
+        public string Text { get; set; } = "";
+        public int TimeLimitSec { get; set; } = 20;
+        public string[] Options { get; } = ["", "", "", ""];
+        public int CorrectIndex { get; set; } = 0;
+    }
+
+    string _title = "";
+    string? _error;
+    List<QuestionFormModel> _questions = [];
+
+    protected override void OnParametersSet()
+    {
+        var quiz = GameService.GetQuiz(Id);
+        if (quiz == null) { Nav.NavigateTo("/quizzes"); return; }
+
+        _title = quiz.Title;
+        _questions = quiz.Questions.Select(q =>
+        {
+            var m = new QuestionFormModel
+            {
+                Text = q.Text,
+                TimeLimitSec = q.TimeLimitSec,
+                CorrectIndex = q.Options.FindIndex(o => o.IsCorrect),
+            };
+            for (int i = 0; i < q.Options.Count && i < 4; i++)
+                m.Options[i] = q.Options[i].Text;
+            return m;
+        }).ToList();
+    }
+
+    private void AddQuestion() => _questions.Add(new QuestionFormModel());
+
+    private void RemoveQuestion(int index)
+    {
+        if (_questions.Count > 1) _questions.RemoveAt(index);
+    }
+
+    private void Submit()
+    {
+        _error = null;
+        if (_title.Trim().Length == 0) { _error = "Quiz title is required."; return; }
+
+        for (int i = 0; i < _questions.Count; i++)
+        {
+            var q = _questions[i];
+            if (q.Text.Trim().Length == 0) { _error = $"Question {i + 1}: enter question text."; return; }
+            if (q.Options.Any(o => o.Trim().Length == 0)) { _error = $"Question {i + 1}: fill in all 4 options."; return; }
+        }
+
+        try
+        {
+            var dtos = _questions.Select(q => new QuizQuestionDto(
+                q.Text.Trim(),
+                q.Options.Select((o, i) => new QuizOption(o.Trim(), i == q.CorrectIndex)).ToList(),
+                q.TimeLimitSec
+            )).ToArray();
+            GameService.UpdateQuiz(Id, _title.Trim(), dtos);
+            Nav.NavigateTo("/quizzes");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private static string OptionIconColor(int i) => i switch
+    {
+        0 => "text-k-red",
+        1 => "text-k-blue",
+        2 => "text-k-yellow",
+        _ => "text-k-green",
+    };
+
+    private static string OptionIcon(int i) => i switch
+    {
+        0 => "change_history",
+        1 => "diamond",
+        2 => "circle",
+        _ => "square",
+    };
+}

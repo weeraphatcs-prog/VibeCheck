@@ -43,6 +43,39 @@ public class GameService : IGameService
     public Quiz? GetQuiz(Guid id) => _quizzes.GetValueOrDefault(id);
     public bool DeleteQuiz(Guid id) => _quizzes.TryRemove(id, out _);
 
+    public Quiz UpdateQuiz(Guid id, string title, IEnumerable<QuizQuestionDto> questions)
+    {
+        if (!_quizzes.TryGetValue(id, out var existing))
+            throw new ArgumentException("Quiz not found");
+        if (_sessions.Values.Any(s => s.Quiz.Id == id && s.Phase != GamePhase.Finished))
+            throw new InvalidOperationException("Quiz is in use by an active game");
+
+        var questionList = questions.ToList();
+        if (!questionList.Any())
+            throw new ArgumentException("Quiz must have at least 1 question");
+        if (title.Length > GameConstants.MaxQuizTitleLength)
+            throw new ArgumentException($"Title max {GameConstants.MaxQuizTitleLength} chars");
+
+        foreach (var q in questionList)
+        {
+            if (q.Options.Count(o => o.IsCorrect) != 1)
+                throw new ArgumentException($"Question '{q.Text}' must have exactly 1 correct answer");
+            if (q.Options.Count < GameConstants.MinOptionsPerQuestion || q.Options.Count > GameConstants.MaxOptionsPerQuestion)
+                throw new ArgumentException($"Question must have {GameConstants.MinOptionsPerQuestion}-{GameConstants.MaxOptionsPerQuestion} options");
+        }
+
+        existing.Title = title;
+        existing.Questions.Clear();
+        existing.Questions.AddRange(questionList.Select(q => new QuizQuestion
+        {
+            Text = q.Text,
+            Options = q.Options,
+            TimeLimitSec = q.TimeLimitSec,
+            Points = q.Points,
+        }));
+        return existing;
+    }
+
     public GameSession CreateSession(Guid quizId)
     {
         var quiz = GetQuiz(quizId) ?? throw new ArgumentException("Quiz not found");

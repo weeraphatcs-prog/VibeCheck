@@ -14,6 +14,7 @@ public record QuizQuestionDto(
 public interface IGameService
 {
     Quiz CreateQuiz(string title, IEnumerable<QuizQuestionDto> questions);
+    Quiz UpdateQuiz(Guid id, string title, IEnumerable<QuizQuestionDto> questions);
     IEnumerable<Quiz> GetAllQuizzes();
     Quiz? GetQuiz(Guid id);
     bool DeleteQuiz(Guid id);

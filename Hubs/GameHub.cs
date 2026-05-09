@@ -82,6 +82,13 @@ public class GameHub : Hub
 
         await Clients.Caller.SendAsync("AnswerAccepted");
 
+        var ansSession = _gameService.GetSession(pin);
+        if (ansSession != null)
+        {
+            int answered = ansSession.Players.Values.Count(p => p.HasAnswered);
+            await _hubContext.Clients.Group(pin).SendAsync("AnswerCountUpdated", answered);
+        }
+
         if (_gameService.AllPlayersAnswered(pin))
         {
             _timerService.Cancel(pin);

@@ -1,5 +1,6 @@
 @page "/host"
 @rendermode InteractiveServer
+@using QRCoder
 @inject NavigationManager Nav
 @inject IGameService GameService
 @implements IAsyncDisposable
@@ -50,6 +51,12 @@
             <p class="text-on-surface-variant text-body-md font-medium tracking-wide uppercase">Game PIN</p>
             <div class="text-headline-pin text-primary font-black tracking-widest select-all">@_pin</div>
             <p class="text-on-surface-variant text-body-md">Join at <span class="font-bold text-primary">@Nav.BaseUri.TrimEnd('/')@("/play")</span></p>
+            @if (!string.IsNullOrEmpty(_qrSvg))
+            {
+                <div class="bg-white rounded-2xl p-3 w-40 h-40 flex items-center justify-center">
+                    @((MarkupString)_qrSvg)
+                </div>
+            }
             <div class="bg-surface-container rounded-2xl px-8 py-5 flex flex-col items-center gap-2 w-full max-w-sm">
                 <span class="text-headline-md font-black text-primary">@_playerCount</span>
                 <span class="text-on-surface-variant text-body-md">player@(_playerCount != 1 ? "s" : "") joined</span>
@@ -178,6 +185,7 @@
 
     string _pin = "";
     string _quizTitle = "";
+    string _qrSvg = "";
     int _playerCount = 0;
     readonly List<string> _players = [];
 
@@ -207,7 +215,11 @@
 
         _hub.On<string, string, Guid>("SessionCreated", (pin, title, _) => InvokeAsync(() =>
         {
-            _pin = pin; _quizTitle = title; _phase = HostPhase.Lobby; StateHasChanged();
+            _pin = pin; _quizTitle = title;
+            var url = $"{Nav.BaseUri.TrimEnd('/')}/play/{pin}";
+            var qrData = new QRCodeGenerator().CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
+            _qrSvg = new SvgQRCode(qrData).GetGraphic(5);
+            _phase = HostPhase.Lobby; StateHasChanged();
         }));
 
         _hub.On<string, int>("PlayerJoined", (nickname, count) => InvokeAsync(() =>
@@ -229,6 +241,8 @@
         }));
 
         _hub.On<int>("TimerTick", secs => InvokeAsync(() => { _secsLeft = secs; StateHasChanged(); }));
+
+        _hub.On<int>("AnswerCountUpdated", count => InvokeAsync(() => { _answeredCount = count; StateHasChanged(); }));
 
         _hub.On<int, List<ScoreEntry>>("QuestionEnded", (correctIndex, scores) => InvokeAsync(() =>
         {
