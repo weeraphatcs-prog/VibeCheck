@@ -1,5 +1,5 @@
-﻿<!DOCTYPE html>
-<html lang="en" class="dark">
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8" />
@@ -11,27 +11,117 @@
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet />
-    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+    <!-- Tailwind with plugins -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
             theme: {
                 extend: {
                     colors: {
+                        // Game answer colors
                         "k-red":    "#E21B3C",
                         "k-blue":   "#1368CE",
                         "k-yellow": "#D89E00",
                         "k-green":  "#26890C",
-                        "surface":  "#1A1A2E",
-                        "card":     "#16213E",
-                    }
+                        // Material Design 3 palette (from VibeCheck reference)
+                        "primary":                    "#0050a5",
+                        "on-primary":                 "#ffffff",
+                        "primary-container":          "#1368ce",
+                        "on-primary-container":       "#e5ecff",
+                        "primary-fixed":              "#d7e2ff",
+                        "primary-fixed-dim":          "#abc7ff",
+                        "on-primary-fixed":           "#001b3f",
+                        "on-primary-fixed-variant":   "#004590",
+                        "inverse-primary":            "#abc7ff",
+                        "secondary":                  "#166e00",
+                        "on-secondary":               "#ffffff",
+                        "secondary-container":        "#92f773",
+                        "on-secondary-container":     "#187200",
+                        "secondary-fixed":            "#95fa76",
+                        "secondary-fixed-dim":        "#7add5d",
+                        "on-secondary-fixed":         "#032100",
+                        "on-secondary-fixed-variant": "#0f5300",
+                        "tertiary":                   "#8a3b00",
+                        "on-tertiary":                "#ffffff",
+                        "tertiary-container":         "#b04d00",
+                        "on-tertiary-container":      "#ffe7dd",
+                        "tertiary-fixed":             "#ffdbca",
+                        "tertiary-fixed-dim":         "#ffb68f",
+                        "on-tertiary-fixed":          "#331100",
+                        "on-tertiary-fixed-variant":  "#773200",
+                        "error":                      "#ba1a1a",
+                        "on-error":                   "#ffffff",
+                        "error-container":            "#ffdad6",
+                        "on-error-container":         "#93000a",
+                        "surface":                    "#f9f9ff",
+                        "surface-dim":                "#d8d9e2",
+                        "surface-bright":             "#f9f9ff",
+                        "surface-container-lowest":   "#ffffff",
+                        "surface-container-low":      "#f2f3fc",
+                        "surface-container":          "#ecedf6",
+                        "surface-container-high":     "#e6e8f1",
+                        "surface-container-highest":  "#e1e2eb",
+                        "on-surface":                 "#191c22",
+                        "on-surface-variant":         "#424753",
+                        "surface-variant":            "#e1e2eb",
+                        "surface-tint":               "#005cbc",
+                        "inverse-surface":            "#2e3037",
+                        "inverse-on-surface":         "#eff0f9",
+                        "outline":                    "#727784",
+                        "outline-variant":            "#c2c6d5",
+                        "background":                 "#f9f9ff",
+                        "on-background":              "#191c22",
+                        // Legacy dark card (used in Game Summary dark sections)
+                        "card":                       "#16213E",
+                        "text-primary":               "#FFFFFF",
+                        "text-muted":                 "#94A3B8",
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg:      "0.5rem",
+                        xl:      "0.75rem",
+                        full:    "9999px",
+                    },
+                    spacing: {
+                        "stack-sm":          "0.5rem",
+                        "stack-md":          "1.5rem",
+                        "stack-lg":          "3rem",
+                        "gutter":            "1rem",
+                        "container-padding": "2rem",
+                    },
+                    fontFamily: {
+                        headline: ["Rubik"],
+                        display:  ["Rubik"],
+                        body:     ["Rubik"],
+                        label:    ["Rubik"],
+                        "headline-pin": ["Rubik"],
+                        "headline-md":  ["Rubik"],
+                        "display-lg":   ["Rubik"],
+                        "body-lg":      ["Rubik"],
+                        "body-md":      ["Rubik"],
+                        "label-xl":     ["Rubik"],
+                    },
+                    fontSize: {
+                        "headline-pin": ["72px",  { lineHeight: "1",   letterSpacing: "4px", fontWeight: "900" }],
+                        "headline-md":  ["32px",  { lineHeight: "1.2", fontWeight: "700" }],
+                        "display-lg":   ["48px",  { lineHeight: "1.1", fontWeight: "700" }],
+                        "body-lg":      ["20px",  { lineHeight: "1.5", fontWeight: "500" }],
+                        "body-md":      ["16px",  { lineHeight: "1.5", fontWeight: "400" }],
+                        "label-xl":     ["24px",  { lineHeight: "1.2", fontWeight: "700" }],
+                    },
                 }
             }
         }
     </script>
 </head>
 
-<body class="bg-surface text-white min-h-screen">
+<body class="bg-background text-on-surface min-h-screen font-body">
     <Routes />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>

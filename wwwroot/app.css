@@ -1,9 +1,24 @@
-/* Base — Tailwind handles all styling, Bootstrap removed */
 *, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, sans-serif; }
+body {
+    margin: 0;
+    font-family: 'Rubik', system-ui, sans-serif;
+    background-color: #f9f9ff;
+    color: #191c22;
+}
 
+/* Material Symbols */
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    display: inline-block;
+    vertical-align: middle;
+}
+.symbol-fill {
+    font-variation-settings: 'FILL' 1;
+}
+
+/* Blazor error UI */
 #blazor-error-ui {
-    background: #E21B3C;
+    background: #ba1a1a;
     color: white;
     bottom: 0; left: 0; right: 0;
     padding: 0.6rem 1.25rem;
@@ -14,7 +29,7 @@ body { margin: 0; font-family: system-ui, sans-serif; }
 #blazor-error-ui .dismiss { cursor: pointer; float: right; font-weight: bold; }
 
 .blazor-error-boundary {
-    background: #b32121;
+    background: #ba1a1a;
     padding: 1rem;
     color: white;
 }
