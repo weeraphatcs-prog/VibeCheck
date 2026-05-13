@@ -1,5 +1,6 @@
 let _audioCtx = null;
 let _muted = false;
+let _bgAudio = null;
 
 function ctx() {
     if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -25,8 +26,25 @@ function tone(freq, duration, type = 'sine', vol = 0.3) {
 }
 
 window.gameInterop = {
-    setMuted: (val) => { _muted = val; },
+    setMuted: (val) => {
+        _muted = val;
+        if (_bgAudio) _bgAudio.volume = val ? 0 : 0.35;
+    },
     isMuted: () => _muted,
+
+    playBgMusic: () => {
+        if (!_bgAudio) {
+            _bgAudio = new Audio('/Denys%20Kyshchuk%20-%20Upbeat%20Game.mp3');
+            _bgAudio.loop = true;
+            _bgAudio.volume = _muted ? 0 : 0.35;
+        }
+        _bgAudio.currentTime = 0;
+        _bgAudio.play().catch(() => {});
+    },
+
+    stopBgMusic: () => {
+        if (_bgAudio) { _bgAudio.pause(); _bgAudio.currentTime = 0; }
+    },
 
     playCorrect: () => {
         tone(523, 0.1);
@@ -54,6 +72,15 @@ window.gameInterop = {
     playFinish: () => {
         [523, 659, 784, 1047, 1319].forEach((f, i) =>
             setTimeout(() => tone(f, 0.25), i * 100));
+    },
+
+    downloadCsv: (filename, content) => {
+        const blob = new Blob(['﻿' + content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
     },
 
     launchConfetti: () => {

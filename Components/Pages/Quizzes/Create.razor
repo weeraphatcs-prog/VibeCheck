@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject IGameService GameService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>New Quiz — VibeCheck</PageTitle>
 
@@ -19,6 +20,26 @@
                placeholder="e.g. General Knowledge"
                maxlength="100"
                class="bg-surface-container text-on-surface rounded-xl px-4 py-3 text-body-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+    </div>
+
+    <div class="bg-surface-container rounded-2xl px-5 py-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-on-surface-variant">
+                <span class="material-symbols-outlined">upload_file</span>
+                <span class="text-body-md font-medium">Import from CSV</span>
+            </div>
+            <button @onclick="DownloadSample" class="text-primary text-body-md hover:underline flex items-center gap-1">
+                <span class="material-symbols-outlined text-sm">download</span>
+                Sample CSV
+            </button>
+        </div>
+        <p class="text-body-md text-on-surface-variant text-xs">Format: Question, OptionA, OptionB, OptionC, OptionD, CorrectIndex (0–3), TimeLimitSec</p>
+        <InputFile OnChange="ImportCsv" accept=".csv"
+                   class="text-body-md text-on-surface-variant file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-primary file:text-on-primary file:font-bold file:cursor-pointer hover:file:opacity-90" />
+        @if (_importMsg != null)
+        {
+            <p class="text-body-md @(_importErr ? "text-error" : "text-secondary") font-medium">@_importMsg</p>
+        }
     </div>
 
     @for (int qi = 0; qi < _questions.Count; qi++)
@@ -112,9 +133,65 @@
 
     string _title = "";
     string? _error;
+    string? _importMsg;
+    bool _importErr;
     List<QuestionFormModel> _questions = [new QuestionFormModel()];
 
     private void AddQuestion() => _questions.Add(new QuestionFormModel());
+
+    private async Task ImportCsv(InputFileChangeEventArgs e)
+    {
+        _importMsg = null; _importErr = false;
+        try
+        {
+            using var reader = new System.IO.StreamReader(e.File.OpenReadStream(maxAllowedSize: 1_048_576));
+            var text = await reader.ReadToEndAsync();
+            var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            var imported = new List<QuestionFormModel>();
+            foreach (var line in lines.Skip(1))
+            {
+                var cols = ParseCsvLine(line);
+                if (cols.Length < 6 || string.IsNullOrWhiteSpace(cols[0])) continue;
+                var q = new QuestionFormModel { Text = cols[0].Trim() };
+                q.Options[0] = cols.Length > 1 ? cols[1].Trim() : "";
+                q.Options[1] = cols.Length > 2 ? cols[2].Trim() : "";
+                q.Options[2] = cols.Length > 3 ? cols[3].Trim() : "";
+                q.Options[3] = cols.Length > 4 ? cols[4].Trim() : "";
+                q.CorrectIndex = cols.Length > 5 && int.TryParse(cols[5].Trim(), out int ci) ? Math.Clamp(ci, 0, 3) : 0;
+                q.TimeLimitSec = cols.Length > 6 && int.TryParse(cols[6].Trim(), out int tl) ? tl : 20;
+                imported.Add(q);
+            }
+            if (imported.Count == 0) { _importMsg = "No valid rows found."; _importErr = true; return; }
+            _questions = imported;
+            _importMsg = $"Imported {imported.Count} question{(imported.Count != 1 ? "s" : "")}.";
+        }
+        catch (Exception ex) { _importMsg = $"Error: {ex.Message}"; _importErr = true; }
+    }
+
+    private static string[] ParseCsvLine(string line)
+    {
+        var result = new List<string>();
+        bool inQuotes = false;
+        var cur = new System.Text.StringBuilder();
+        foreach (char c in line.TrimEnd('\r'))
+        {
+            if (c == '"') inQuotes = !inQuotes;
+            else if (c == ',' && !inQuotes) { result.Add(cur.ToString()); cur.Clear(); }
+            else cur.Append(c);
+        }
+        result.Add(cur.ToString());
+        return result.ToArray();
+    }
+
+    private async Task DownloadSample()
+    {
+        const string sample =
+            "Question,OptionA,OptionB,OptionC,OptionD,CorrectIndex,TimeLimitSec\r\n" +
+            "\"Capital of France?\",Paris,London,Berlin,Rome,0,20\r\n" +
+            "\"2 + 2 = ?\",3,4,5,6,1,10\r\n" +
+            "\"Largest planet in solar system?\",Earth,Mars,Jupiter,Saturn,2,20\r\n";
+        await JS.InvokeVoidAsync("gameInterop.downloadCsv", "quiz-sample.csv", sample);
+    }
 
     private void RemoveQuestion(int index)
     {

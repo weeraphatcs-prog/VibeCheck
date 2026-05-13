@@ -183,10 +183,17 @@
                     </div>
                 }
             </div>
-            <button @onclick="GoHome"
-                    class="bg-primary text-on-primary font-bold text-body-lg px-10 py-4 rounded-full hover:opacity-90 transition-opacity">
-                Play Again
-            </button>
+            <div class="flex gap-3">
+                <button @onclick="ExportResults"
+                        class="flex items-center gap-2 border-2 border-primary text-primary font-bold text-body-lg px-7 py-4 rounded-full hover:bg-primary hover:text-on-primary transition-colors">
+                    <span class="material-symbols-outlined">download</span>
+                    Export CSV
+                </button>
+                <button @onclick="GoHome"
+                        class="bg-primary text-on-primary font-bold text-body-lg px-10 py-4 rounded-full hover:opacity-90 transition-opacity">
+                    Play Again
+                </button>
+            </div>
         </div>
         break;
 }
@@ -253,6 +260,7 @@
         _hub.On("GameStarted", () => InvokeAsync(async () =>
         {
             try { await JS.InvokeVoidAsync("gameInterop.playGameStart"); } catch { }
+            try { await JS.InvokeVoidAsync("gameInterop.playBgMusic"); } catch { }
             StateHasChanged();
         }));
 
@@ -304,6 +312,7 @@
         _hub.On<List<LeaderEntry>>("GameFinished", entries => InvokeAsync(async () =>
         {
             _leaderboard = entries; _phase = HostPhase.Finished;
+            try { await JS.InvokeVoidAsync("gameInterop.stopBgMusic"); } catch { }
             try { await JS.InvokeVoidAsync("gameInterop.playFinish"); } catch { }
             try { await JS.InvokeVoidAsync("gameInterop.launchConfetti"); } catch { }
             StateHasChanged();
@@ -367,6 +376,19 @@
         _muted = !_muted;
         try { await JS.InvokeVoidAsync("gameInterop.setMuted", _muted); } catch { }
     }
+
+    private async Task ExportResults()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Rank,Nickname,Score");
+        foreach (var e in _leaderboard)
+            sb.AppendLine($"{e.Rank},{EscapeCsv(e.Nickname)},{e.Score}");
+        var filename = $"results-{_pin}-{DateTime.Now:yyyyMMdd-HHmm}.csv";
+        try { await JS.InvokeVoidAsync("gameInterop.downloadCsv", filename, sb.ToString()); } catch { }
+    }
+
+    private static string EscapeCsv(string v) =>
+        v.Contains(',') || v.Contains('"') ? $"\"{v.Replace("\"", "\"\"")}\"" : v;
 
     private void GoHome() => Nav.NavigateTo("/host");
 
