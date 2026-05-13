@@ -6,6 +6,14 @@
 
 <PageTitle>Play — VibeCheck</PageTitle>
 
+@if (_hostDisconnected)
+{
+    <div class="fixed top-0 left-0 right-0 bg-error text-on-error px-4 py-2 text-center text-body-md font-medium z-50 flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-sm">wifi_off</span>
+        Host disconnected — waiting for reconnect...
+    </div>
+}
+
 @switch (_phase)
 {
     case PlayerPhase.Join:
@@ -211,6 +219,7 @@
     string _nickname = "";
     string _pin = "";
     int _playerCount = 0;
+    bool _hostDisconnected;
 
     QuestionPayload? _question;
     int _secsLeft;
@@ -271,7 +280,7 @@
             _phase = PlayerPhase.Answered; StateHasChanged();
         }));
 
-        _hub.On<int, List<ScoreEntry>>("QuestionEnded", (correctIndex, scores) => InvokeAsync(() =>
+        _hub.On<int, List<ScoreEntry>, int[]>("QuestionEnded", (correctIndex, scores, _) => InvokeAsync(() =>
         {
             _correctIndex = correctIndex;
             _wasCorrect = _selectedOption == correctIndex;
@@ -292,9 +301,14 @@
             _leaderboard = entries; _phase = PlayerPhase.Finished; StateHasChanged();
         }));
 
-        _hub.On("HostLeft", () => InvokeAsync(() =>
+        _hub.On("HostDisconnected", () => InvokeAsync(() =>
         {
-            _phase = PlayerPhase.HostLeft; StateHasChanged();
+            _hostDisconnected = true; StateHasChanged();
+        }));
+
+        _hub.On("HostRejoined", () => InvokeAsync(() =>
+        {
+            _hostDisconnected = false; StateHasChanged();
         }));
 
         _hub.On<string>("Error", msg => InvokeAsync(() =>

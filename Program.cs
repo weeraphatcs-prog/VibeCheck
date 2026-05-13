@@ -11,6 +11,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IGameService, GameService>();
 builder.Services.AddSingleton<TimerService>();
+builder.Services.AddHostedService<SessionCleanupService>();
 
 var app = builder.Build();
 

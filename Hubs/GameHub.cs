@@ -44,6 +44,12 @@ public class GameHub : Hub
     public async Task NextStep(string pin)
     {
         if (!IsHost(pin)) { await SendError("Not authorized"); return; }
+        var current = _gameService.GetSession(pin);
+        if (current?.Phase == GamePhase.ShowQuestion)
+        {
+            await SendError("Question in progress, wait for timer");
+            return;
+        }
         var session = _gameService.NextStep(pin);
         if (session == null) return;
 
@@ -104,9 +110,8 @@ public class GameHub : Hub
             var session = _gameService.GetSession(pin);
             if (session?.HostConnectionId == Context.ConnectionId)
             {
-                _timerService.Cancel(pin);
-                _gameService.EndGame(pin);
-                await _hubContext.Clients.Group(pin).SendAsync("HostLeft");
+                session.HostConnectionId = null;
+                await _hubContext.Clients.Group(pin).SendAsync("HostDisconnected");
             }
             else if (session != null && session.Players.TryGetValue(Context.ConnectionId, out var player))
             {
@@ -115,6 +120,21 @@ public class GameHub : Hub
             }
         }
         await base.OnDisconnectedAsync(exception);
+    }
+
+    public async Task HostJoin(string pin)
+    {
+        var session = _gameService.GetSession(pin);
+        if (session == null) { await SendError("Game not found"); return; }
+        if (session.HostConnectionId != null && session.HostConnectionId != Context.ConnectionId)
+        { await SendError("Game already has a host"); return; }
+
+        session.HostConnectionId = Context.ConnectionId;
+        await Groups.AddToGroupAsync(Context.ConnectionId, pin);
+        await Clients.Caller.SendAsync("HostRejoined", (int)session.Phase, session.CurrentIndex, session.SecondsLeft);
+        if (session.Phase == GamePhase.ShowQuestion)
+            await ResendCurrentQuestion(session);
+        await _hubContext.Clients.Group(pin).SendAsync("HostRejoined");
     }
 
     // --- helpers ---
@@ -157,7 +177,22 @@ public class GameHub : Hub
             .Select(p => new ScoreEntry(p.Nickname, p.TotalScore))
             .ToList();
 
-        await _hubContext.Clients.Group(pin).SendAsync("QuestionEnded", correctIndex, scores);
+        var answerCounts = Enumerable.Range(0, q.Options.Count)
+            .Select(i => session.Answers.Values.Count(a => a.OptionIndex == i))
+            .ToArray();
+        await _hubContext.Clients.Group(pin).SendAsync("QuestionEnded", correctIndex, scores, answerCounts);
+    }
+
+    private async Task ResendCurrentQuestion(GameSession session)
+    {
+        var q = session.Quiz.Questions[session.CurrentIndex];
+        var payload = new QuestionPayload(
+            session.CurrentIndex,
+            session.Quiz.Questions.Count,
+            q.Text,
+            q.Options.Select((o, i) => new OptionDto(i, o.Text)).ToList(),
+            q.TimeLimitSec);
+        await Clients.Caller.SendAsync("QuestionStarted", payload);
     }
 
     private async Task BroadcastLeaderboard(string pin, GameSession session, bool finished)

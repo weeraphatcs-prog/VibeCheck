@@ -113,18 +113,29 @@
                     <span class="material-symbols-outlined text-4xl symbol-fill">check_circle</span>
                     <span class="text-headline-md font-black">@_question.Options[_correctIndex].Text</span>
                 </div>
+                <p class="text-on-surface-variant text-body-md">Correct answer</p>
             }
-            <p class="text-on-surface-variant text-body-md">Correct answer</p>
-            <div class="bg-surface-container rounded-2xl px-8 py-5 w-full max-w-sm">
-                <p class="text-body-md font-bold text-on-surface mb-3">Top scores</p>
-                @foreach (var (entry, i) in _scores.Take(5).Select((e, i) => (e, i)))
-                {
-                    <div class="flex items-center justify-between py-1">
-                        <span class="text-body-md text-on-surface">@(i + 1). @entry.Nickname</span>
-                        <span class="font-black text-primary text-body-lg">@entry.Total</span>
-                    </div>
-                }
-            </div>
+            @if (_question != null)
+            {
+                var totalAnswered = _answerCounts.Length > 0 ? _answerCounts.Sum() : 0;
+                <div class="w-full max-w-lg flex flex-col gap-3">
+                    @foreach (var opt in _question.Options)
+                    {
+                        var count = opt.Index < _answerCounts.Length ? _answerCounts[opt.Index] : 0;
+                        var pct = totalAnswered > 0 ? (int)((double)count / totalAnswered * 100) : 0;
+                        var isCorrect = opt.Index == _correctIndex;
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined @(isCorrect ? "text-secondary" : "text-on-surface-variant") symbol-fill w-7">@OptionIcon(opt.Index)</span>
+                            <span class="text-body-md text-on-surface w-28 truncate">@opt.Text</span>
+                            <div class="flex-1 bg-surface-container-high rounded-full h-5 overflow-hidden">
+                                <div class="h-full @(isCorrect ? "bg-secondary" : "bg-primary-container") rounded-full transition-all duration-500"
+                                     style="width: @(pct)%"></div>
+                            </div>
+                            <span class="text-body-md text-on-surface-variant w-14 text-right">@count/@totalAnswered</span>
+                        </div>
+                    }
+                </div>
+            }
             <button @onclick="NextStep"
                     class="bg-primary text-on-primary font-bold text-body-lg px-10 py-4 rounded-full hover:opacity-90 transition-opacity">
                 Next
@@ -195,6 +206,7 @@
 
     int _correctIndex = -1;
     List<ScoreEntry> _scores = [];
+    int[] _answerCounts = [];
 
     List<LeaderEntry> _leaderboard = [];
 
@@ -244,9 +256,26 @@
 
         _hub.On<int>("AnswerCountUpdated", count => InvokeAsync(() => { _answeredCount = count; StateHasChanged(); }));
 
-        _hub.On<int, List<ScoreEntry>>("QuestionEnded", (correctIndex, scores) => InvokeAsync(() =>
+        _hub.On<int, List<ScoreEntry>, int[]>("QuestionEnded", (correctIndex, scores, answerCounts) => InvokeAsync(() =>
         {
-            _correctIndex = correctIndex; _scores = scores; _phase = HostPhase.ShowAnswers; StateHasChanged();
+            _correctIndex = correctIndex; _scores = scores; _answerCounts = answerCounts;
+            _phase = HostPhase.ShowAnswers; StateHasChanged();
+        }));
+
+        _hub.On<int, int, int>("HostRejoined", (phaseInt, _, secondsLeft) => InvokeAsync(() =>
+        {
+            _secsLeft = secondsLeft;
+            if (phaseInt != 1) // ShowQuestion: QuestionStarted re-send handles the phase
+            {
+                _phase = phaseInt switch
+                {
+                    2 => HostPhase.ShowAnswers,
+                    3 => HostPhase.Leaderboard,
+                    4 => HostPhase.Finished,
+                    _ => HostPhase.Lobby,
+                };
+            }
+            StateHasChanged();
         }));
 
         _hub.On<List<LeaderEntry>>("LeaderboardUpdate", entries => InvokeAsync(() =>
@@ -262,6 +291,12 @@
         _hub.On<string>("Error", msg => InvokeAsync(() => { _error = msg; StateHasChanged(); }));
 
         await _hub.StartAsync();
+
+        _hub.Reconnected += async _ =>
+        {
+            if (!string.IsNullOrEmpty(_pin))
+                await _hub!.SendAsync("HostJoin", _pin);
+        };
     }
 
     private async Task CreateSession(Guid quizId)
