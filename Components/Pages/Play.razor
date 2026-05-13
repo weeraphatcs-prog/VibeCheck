@@ -2,6 +2,7 @@
 @page "/play/{PinParam}"
 @rendermode InteractiveServer
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @implements IAsyncDisposable
 
 <PageTitle>Play — VibeCheck</PageTitle>
@@ -12,6 +13,13 @@
         <span class="material-symbols-outlined text-sm">wifi_off</span>
         Host disconnected — waiting for reconnect...
     </div>
+}
+
+@if (_phase != PlayerPhase.Join)
+{
+    <button @onclick="ToggleMute" class="fixed top-3 right-3 z-40 bg-surface-container shadow-md rounded-full p-2">
+        <span class="material-symbols-outlined text-on-surface">@(_muted ? "volume_off" : "volume_up")</span>
+    </button>
 }
 
 @switch (_phase)
@@ -64,14 +72,7 @@
         <div class="flex flex-col min-h-screen bg-primary">
             <div class="px-6 py-4 flex items-center justify-between text-on-primary">
                 <span class="text-body-md opacity-75">Q @(_question!.Index + 1) / @_question.Total</span>
-                <div class="flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm">timer</span>
-                    <span class="text-label-xl font-black">@_secsLeft</span>
-                </div>
-            </div>
-            <div class="h-1.5 bg-on-primary/20">
-                <div class="h-full bg-on-primary transition-all duration-1000"
-                     style="width: @(TimerPct())%"></div>
+                <CountdownRing SecondsLeft="@_secsLeft" TimeLimitSec="@(_question.TimeLimitSec)" Class="w-14 h-14" />
             </div>
             <div class="flex-1 flex flex-col items-center justify-center px-4 py-6 gap-4">
                 <div class="bg-on-primary/10 rounded-2xl px-6 py-5 w-full max-w-md text-center">
@@ -220,6 +221,7 @@
     string _pin = "";
     int _playerCount = 0;
     bool _hostDisconnected;
+    bool _muted;
 
     QuestionPayload? _question;
     int _secsLeft;
@@ -267,20 +269,28 @@
 
         _hub.On("GameStarted", () => InvokeAsync(StateHasChanged));
 
-        _hub.On<QuestionPayload>("QuestionStarted", payload => InvokeAsync(() =>
+        _hub.On<QuestionPayload>("QuestionStarted", payload => InvokeAsync(async () =>
         {
             _question = payload; _secsLeft = payload.TimeLimitSec;
-            _selectedOption = -1; _phase = PlayerPhase.Question; StateHasChanged();
+            _selectedOption = -1; _phase = PlayerPhase.Question;
+            try { await JS.InvokeVoidAsync("gameInterop.playQuestionStart"); } catch { }
+            StateHasChanged();
         }));
 
-        _hub.On<int>("TimerTick", secs => InvokeAsync(() => { _secsLeft = secs; StateHasChanged(); }));
+        _hub.On<int>("TimerTick", secs => InvokeAsync(async () =>
+        {
+            _secsLeft = secs;
+            if (secs <= 5 && secs > 0)
+                try { await JS.InvokeVoidAsync("gameInterop.playTimerTick"); } catch { }
+            StateHasChanged();
+        }));
 
         _hub.On("AnswerAccepted", () => InvokeAsync(() =>
         {
             _phase = PlayerPhase.Answered; StateHasChanged();
         }));
 
-        _hub.On<int, List<ScoreEntry>, int[]>("QuestionEnded", (correctIndex, scores, _) => InvokeAsync(() =>
+        _hub.On<int, List<ScoreEntry>, int[]>("QuestionEnded", (correctIndex, scores, _) => InvokeAsync(async () =>
         {
             _correctIndex = correctIndex;
             _wasCorrect = _selectedOption == correctIndex;
@@ -288,7 +298,10 @@
             _previousScore = _currentScore;
             _currentScore = myEntry?.Total ?? _currentScore;
             _scoreGain = _currentScore - _previousScore;
-            _phase = PlayerPhase.ShowAnswers; StateHasChanged();
+            _phase = PlayerPhase.ShowAnswers;
+            var sound = _wasCorrect ? "gameInterop.playCorrect" : "gameInterop.playWrong";
+            try { await JS.InvokeVoidAsync(sound); } catch { }
+            StateHasChanged();
         }));
 
         _hub.On<List<LeaderEntry>>("LeaderboardUpdate", entries => InvokeAsync(() =>
@@ -296,9 +309,14 @@
             _leaderboard = entries; _phase = PlayerPhase.Leaderboard; StateHasChanged();
         }));
 
-        _hub.On<List<LeaderEntry>>("GameFinished", entries => InvokeAsync(() =>
+        _hub.On<List<LeaderEntry>>("GameFinished", entries => InvokeAsync(async () =>
         {
-            _leaderboard = entries; _phase = PlayerPhase.Finished; StateHasChanged();
+            _leaderboard = entries; _phase = PlayerPhase.Finished;
+            try { await JS.InvokeVoidAsync("gameInterop.playFinish"); } catch { }
+            var myRank = entries.FirstOrDefault(e => e.Nickname == _nickname)?.Rank ?? 99;
+            if (myRank <= 3)
+                try { await JS.InvokeVoidAsync("gameInterop.launchConfetti"); } catch { }
+            StateHasChanged();
         }));
 
         _hub.On("HostDisconnected", () => InvokeAsync(() =>
@@ -372,6 +390,12 @@
         3 => "🥉",
         _ => $"{rank}.",
     };
+
+    private async Task ToggleMute()
+    {
+        _muted = !_muted;
+        try { await JS.InvokeVoidAsync("gameInterop.setMuted", _muted); } catch { }
+    }
 
     private void GoPlay() => Nav.NavigateTo("/play");
 
