@@ -158,14 +158,15 @@
                 q.Options[2] = cols.Length > 3 ? cols[3].Trim() : "";
                 q.Options[3] = cols.Length > 4 ? cols[4].Trim() : "";
                 q.CorrectIndex = cols.Length > 5 && int.TryParse(cols[5].Trim(), out int ci) ? Math.Clamp(ci, 0, 3) : 0;
-                q.TimeLimitSec = cols.Length > 6 && int.TryParse(cols[6].Trim(), out int tl) ? tl : 20;
+                int[] allowed = [5, 10, 15, 20, 30, 60];
+                q.TimeLimitSec = cols.Length > 6 && int.TryParse(cols[6].Trim(), out int tl) && allowed.Contains(tl) ? tl : 20;
                 imported.Add(q);
             }
             if (imported.Count == 0) { _importMsg = "No valid rows found."; _importErr = true; return; }
             _questions = imported;
             _importMsg = $"Imported {imported.Count} question{(imported.Count != 1 ? "s" : "")}.";
         }
-        catch (Exception ex) { _importMsg = $"Error: {ex.Message}"; _importErr = true; }
+        catch { _importMsg = "Failed to parse CSV. Check file format and try again."; _importErr = true; }
     }
 
     private static string[] ParseCsvLine(string line)

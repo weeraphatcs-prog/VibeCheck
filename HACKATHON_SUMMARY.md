@@ -134,11 +134,51 @@ Browser (Host)          Server                    Browser (Player)
 
 ---
 
-## Out of Scope (Next Version)
+---
 
-- Persistent storage (SQLite/PostgreSQL) — ข้อมูลหายเมื่อ restart
-- User authentication
-- Image/media ใน question
-- Team mode
-- Rate limiting บน SignalR
-- Mobile PWA
+## Changelog
+
+### V.1 — Core Game Loop
+- Scaffold, Models, State Machine (`Lobby → ShowQuestion → ShowAnswers → Leaderboard → Finished`)
+- `GameService` (singleton, thread-safe `ConcurrentDictionary`)
+- `TimerService` (server-authoritative countdown, broadcast ทุก 1 วิ)
+- `GameHub` SignalR: `HostCreateSession`, `JoinGame`, `SubmitAnswer`, `NextStep`, `OnDisconnectedAsync`
+- Host UI + Player UI (Blazor Server, Tailwind CSS dark theme)
+- Quiz CRUD (`/quizzes` index, create, edit, delete)
+- QR Code generation (QRCoder, inline SVG)
+- Speed-based scoring algorithm: `Points × (0.5 + 0.5 × speedRatio)`
+- PIN validation: 6-digit, unique, server-generated
+
+### V.2 — Polish & Resilience
+- **Host reconnect**: `HostJoin` hub method — host หลุดได้, game ดำเนิน auto, rejoin ได้ทันที
+- **SessionCleanupService**: Background service กวาด session เก่า (inactive > 2h) ทุก 10 นาที
+- **Answer distribution**: Host เห็น count per option หลังข้อจบ (ใน `QuestionEnded` event)
+- **CountdownRing**: SVG ring animation, สีเปลี่ยน green→yellow→red ตาม threshold (>50%, 25–50%, <25%)
+- **Web Audio effects**: Web Audio API synthesized — correct/wrong/tick/start/finish (ไม่มีไฟล์ภายนอก)
+- **Background music**: `<audio>` element loop, mute toggle sync กับ sound effects
+- **Confetti**: canvas-confetti CDN, เฉพาะ player ที่ rank ≤3
+- **CSV import**: bulk create quiz จาก `.csv` (maxAllowedSize 1MB, parse manual ไม่ใช้ library)
+- **CSV export**: download leaderboard ผลคะแนนหลัง game finish
+
+### V.2 Security Patch (May 14, 2026)
+- **Fixed CWE-20** (`Create.razor:161`): `TimeLimitSec` จาก CSV import ไม่ได้ validate — แก้โดย allowlist `[5, 10, 15, 20, 30, 60]` เท่านั้น; ค่านอก list fallback เป็น 20
+- **Fixed CWE-209** (`Create.razor:168`): raw `ex.Message` แสดงใน UI — แก้เป็น generic error message
+
+**ไม่พบ** (confirmed clean): SQL injection (ไม่มี DB), XSS (Blazor escape auto), hardcoded secrets, plaintext passwords
+
+---
+
+## Known Limitations → V.3 Backlog
+
+| จุด | ผลกระทบ | แนวทางแก้ |
+|-----|---------|-----------|
+| In-memory storage | ข้อมูลหายเมื่อ restart | SQLite + EF Core |
+| No rate limiting บน `JoinGame` | PIN brute-force ได้ใน theory | SignalR rate limit middleware / Redis |
+| No auth บน Quiz CRUD | ใครก็ลบ quiz ได้ | Admin PIN หรือ simple JWT |
+| `AllowedHosts: "*"` | Host header injection risk | Lock down ใน production `appsettings` |
+| `Random.Shared` สำหรับ PIN | ไม่ใช่ crypto-random | `RandomNumberGenerator.GetInt32()` |
+| No HTTPS redirect ใน code | ขึ้นกับ platform (Render) | `app.UseHttpsRedirection()` |
+| Unlimited quiz creation | Memory DoS ได้ | Max quiz count per instance |
+| Image/media ใน question | ข้อสอบมีแค่ text | Blob storage + `<img>` support |
+| Team mode | เล่นเดี่ยวอย่างเดียว | Group model ใน `GameSession` |
+| Mobile PWA | ต้องเปิด browser | Service Worker + manifest |
