@@ -131,6 +131,11 @@
 
   /* Progress */
   .reveal .progress { color: var(--primary); }
+
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    @page { size: 1280px 720px; margin: 0; }
+  }
 </style>
 </head>
 <body>
