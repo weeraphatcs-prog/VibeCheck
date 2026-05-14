@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VibeCheck — Hackathon Presentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css">
+<style>
+  :root {
+    --primary:   #1368ce;
+    --primary-d: #0050a5;
+    --card:      rgba(255,255,255,0.06);
+    --card-b:    rgba(255,255,255,0.12);
+  }
+
+  .reveal { font-family: 'Prompt', sans-serif; font-size: 26px; }
+  .reveal .slides section {
+    text-align: left;
+    padding: 0.5em 1.5em 2.2em;
+    box-sizing: border-box;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+  }
+  .reveal h1, .reveal h2, .reveal h3,
+  .reveal p,  .reveal li { font-family: 'Prompt', sans-serif; }
+
+  /* ── Footer (injected via JS) ── */
+  .slide-footer {
+    position: absolute;
+    bottom: 0.55em;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 0.37em;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.05em;
+    pointer-events: none;
+    font-family: 'Prompt', sans-serif;
+  }
+
+  /* ── Title slide ── */
+  .slide-title { text-align: center !important; }
+  .logo-text {
+    font-size: 2.9em; font-weight: 800;
+    background: linear-gradient(135deg, #4f9bff 0%, #92f773 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; line-height: 1.05;
+  }
+  .logo-icon { font-size: 1.5em; margin-bottom: 0.12em; }
+  .slide-title .meta {
+    color: rgba(255,255,255,0.55); font-size: 0.56em;
+    margin-top: 0.45em; line-height: 1.7;
+  }
+  .slide-title .tag {
+    display: inline-block; background: var(--primary); color: #fff;
+    font-size: 0.48em; padding: 0.2em 0.8em; border-radius: 999px;
+    font-weight: 700; margin-top: 0.35em; letter-spacing: 0.04em;
+  }
+
+  /* ── Section header ── */
+  .section-label {
+    font-size: 0.42em; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #4f9bff; margin-bottom: 0.12em;
+  }
+  .reveal h2 { font-size: 1.25em; color: #fff; margin-top: 0; margin-bottom: 0.3em; }
+
+  /* ── Cards ── */
+  .cards { display: flex; gap: 0.55em; margin-top: 0.4em; }
+  .card {
+    flex: 1; background: var(--card); border: 1px solid var(--card-b);
+    border-radius: 10px; padding: 0.6em 0.75em; font-size: 0.6em; min-width: 0;
+  }
+  .card h3 { margin: 0 0 0.3em; font-size: 0.9em; color: #4f9bff; }
+  .card ul { margin: 0; padding-left: 0.95em; line-height: 1.5; color: rgba(255,255,255,0.85); }
+  .card li { margin-bottom: 0.06em; }
+
+  /* ── Two columns ── */
+  .cols { display: flex; gap: 0.8em; margin-top: 0.4em; }
+  .col { flex: 1; min-width: 0; }
+
+  /* ── Quote ── */
+  .quote {
+    background: linear-gradient(135deg,rgba(19,104,206,0.22),rgba(38,137,12,0.15));
+    border-left: 4px solid var(--primary); border-radius: 0 10px 10px 0;
+    padding: 0.4em 0.85em; font-style: italic; font-size: 0.65em;
+    color: rgba(255,255,255,0.9); margin: 0.45em 0; line-height: 1.5;
+  }
+
+  /* ── Code-style block ── */
+  .flow {
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px; padding: 0.4em 0.8em; font-family: 'Consolas',monospace;
+    font-size: 0.54em; color: #92f773; line-height: 1.65; margin: 0.4em 0;
+  }
+
+  /* ── Check / cross lists ── */
+  .check-list { list-style: none !important; padding-left: 0 !important; line-height: 1.6; font-size: 0.74em; }
+  .check-list li::before { margin-right: 0.4em; }
+  .check-list .ok::before   { content: "✓"; color: #92f773; font-weight: 700; }
+  .check-list .bad::before  { content: "✗"; color: #ff8099; font-weight: 700; }
+  .check-list .note::before { content: "→"; color: #ffd966; }
+
+  /* ── Highlight ── */
+  .hl   { color: #4f9bff; font-weight: 700; }
+  .hl-g { color: #92f773; font-weight: 700; }
+  .hl-y { color: #ffd966; font-weight: 700; }
+  .hl-r { color: #ff8099; font-weight: 700; }
+
+  /* ── Demo slide ── */
+  .demo-center { text-align: center !important; }
+  .url-pill {
+    display: inline-block; background: var(--primary-d);
+    border: 2px solid var(--primary); border-radius: 10px;
+    padding: 0.38em 1em; font-family: monospace; font-size: 0.8em;
+    color: #fff; margin: 0.3em 0; text-decoration: none;
+    transition: background 0.2s;
+  }
+  .url-pill:hover { background: #1368ce; }
+  .feature-num { color: #4f9bff; font-weight: 900; margin-right: 0.3em; }
+
+  /* ── Step pill row ── */
+  .step-row { display: flex; gap: 0.3em; align-items: center; flex-wrap: wrap; margin: 0.4em 0; }
+  .step-pill {
+    background: rgba(19,104,206,0.3); border: 1px solid rgba(79,155,255,0.4);
+    border-radius: 999px; padding: 0.16em 0.7em; font-size: 0.6em;
+    color: #7bb8ff; font-weight: 700;
+  }
+  .step-arrow { color: rgba(255,255,255,0.35); font-size: 0.62em; }
+
+  /* Progress */
+  .reveal .progress { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- ══════════════ SLIDE 1 — TITLE ══════════════ -->
+<section class="slide-title">
+  <div class="logo-icon">📡</div>
+  <div class="logo-text">VibeCheck</div>
+  <p style="color:rgba(255,255,255,0.7);font-size:0.66em;margin:0.3em 0 0;">
+    Real-Time Classroom Quiz Platform
+  </p>
+  <div class="tag">กลุ่ม 1</div>
+  <div class="meta">
+    AI-Accelerated Software Development Workshop<br>
+    โครงการ Frontier Technology<br>
+    15 พฤษภาคม 2569 · The Brick X · อุทยานวิทยาศาสตร์ภาคเหนือ เชียงใหม่
+  </div>
+</section>
+
+<!-- ══════════════ SLIDE 2 — PROBLEM ══════════════ -->
+<section>
+  <div class="section-label">The Problem</div>
+  <h2>ทำไมต้องสร้างใหม่?</h2>
+
+  <div class="quote">
+    "เราเคยเปิด Kahoot ในห้องเรียน — แต่ต้องสมัครสมาชิก, จ่ายเงิน,
+    และข้อมูลทั้งหมดอยู่กับบริษัทต่างประเทศ"
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h3>❌ Kahoot ที่มีอยู่แล้ว</h3>
+      <ul>
+        <li>ต้องสมัครสมาชิกก่อนใช้</li>
+        <li>ฟีเจอร์ครบ = ต้องจ่ายเงิน</li>
+        <li>ข้อมูล Player อยู่กับ server ต่างประเทศ</li>
+        <li>ไม่สามารถติดตั้งบนเครื่องตัวเองได้</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="color:#92f773;">✅ VibeCheck</h3>
+      <ul>
+        <li>ไม่ต้องมี account</li>
+        <li>โอเพนซอร์ส — ติดตั้งเองได้</li>
+        <li>ข้อมูลอยู่บน server ของตัวเอง</li>
+        <li><strong>เริ่มใช้งานได้ใน 30 วินาที</strong></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="flow">Host แชร์รหัส PIN 6 หลัก → Player เข้าจากมือถือ → เล่นได้เลย ไม่ต้อง login</div>
+</section>
+
+<!-- ══════════════ SLIDE 3 — HOW IT WORKS ══════════════ -->
+<section>
+  <div class="section-label">How It Works</div>
+  <h2>ระบบทำงานอย่างไร?</h2>
+
+  <div class="flow" style="font-size:0.53em;line-height:1.8;">
+Host (เบราว์เซอร์) ──→ ระบบส่งข้อมูลสด (SignalR) ──→ จัดการเกม (GameService) ──→ Player (มือถือ)<br>
+<br>
+ขั้นตอนเกม: รอ Player → โชว์คำถาม → รับคำตอบ → แสดงคะแนน → จบเกม
+  </div>
+
+  <div class="cards" style="margin-top:0.4em;">
+    <div class="card">
+      <h3>Tech Stack</h3>
+      <ul>
+        <li><span class="hl">.NET 10</span> Blazor Server — เว็บแอปฝั่งเซิร์ฟเวอร์</li>
+        <li><span class="hl">SignalR</span> — ส่งข้อมูลแบบสด (real-time)</li>
+        <li>Tailwind CSS — ตกแต่งหน้าเว็บ</li>
+        <li>Web Audio API — เสียงเอฟเฟกต์</li>
+        <li>Docker → <span class="hl-g">Render.com</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>ทำไมเลือก Blazor?</h3>
+      <ul>
+        <li>เขียน C# อย่างเดียว — ไม่ต้องแยก frontend/backend</li>
+        <li>มี SignalR built-in</li>
+        <li>นาฬิกา <strong>ควบคุมที่เซิร์ฟเวอร์</strong> — โกงไม่ได้</li>
+        <li>โครงสร้างเรียบง่าย เหมาะทำใน hackathon</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top:0.7em;text-align:center;">
+    <span style="font-size:0.62em;color:rgba(255,255,255,0.5);">ทดลองใช้ได้ที่ </span>
+    <a href="https://vibecheck-jck0.onrender.com/" target="_blank" class="url-pill" style="font-size:0.68em;">vibecheck-jck0.onrender.com</a>
+  </div>
+</section>
+
+<!-- ══════════════ SLIDE 4 — DEMO ══════════════ -->
+<section class="demo-center">
+  <div class="section-label" style="text-align:center;">Live Demo</div>
+  <h2 style="text-align:center;font-size:1.85em;">🎮 Live Demo</h2>
+
+  <a href="https://vibecheck-jck0.onrender.com/" target="_blank" class="url-pill">
+    vibecheck-jck0.onrender.com
+  </a>
+
+  <div style="margin-top:0.75em;text-align:left;">
+    <p style="font-size:0.65em;color:rgba(255,255,255,0.6);margin-bottom:0.4em;">จะสาธิต 3 จุด:</p>
+    <div style="font-size:0.73em;line-height:1.95;">
+      <div><span class="feature-num">①</span>Host สร้างชุดคำถาม, แชร์ PIN, Player join, ตอบ, ดูคะแนน</div>
+      <div><span class="feature-num">②</span>นาฬิกาถอยหลังทุกหน้าจอเดินพร้อมกัน — สีเปลี่ยนตามเวลาที่เหลือ</div>
+      <div><span class="feature-num">③</span>เสียงเอฟเฟกต์ + กระดาษสีตก (confetti) + ดาวน์โหลดคะแนนเป็น CSV</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ SLIDE 5 — AI WORKFLOW: SPEC ══════════════ -->
+<section>
+  <div class="section-label">AI Workflow · Part 1</div>
+  <h2>วางแผนก่อนลงมือ Code</h2>
+
+  <p style="font-size:0.65em;color:rgba(255,255,255,0.7);margin-bottom:0.4em;">
+    เขียน <span class="hl">SPEC.md</span> — เอกสารตกลงทุกข้อก่อนเขียน code บรรทัดแรก
+  </p>
+
+  <div class="cards">
+    <div class="card">
+      <h3>คำถามที่ต้องตัดสินใจก่อน</h3>
+      <ul>
+        <li>Player เชื่อมต่อใหม่ — เล่นต่อ หรือขึ้นเป็นคนใหม่?</li>
+        <li>Host หลุดออก — เกมหยุด หรือเดินต่ออัตโนมัติ?</li>
+        <li>เข้าระหว่างเกม — อนุญาต หรือบล็อก?</li>
+        <li>นาฬิกา — ควบคุมที่เบราว์เซอร์ หรือที่เซิร์ฟเวอร์?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>คำตอบที่ล็อกไว้ก่อน build</h3>
+      <ul>
+        <li>เชื่อมต่อใหม่ → <span class="hl-g">ขึ้นเป็น Player ใหม่</span></li>
+        <li>Host หลุด → <span class="hl-g">เกมเดินต่ออัตโนมัติ</span></li>
+        <li>เข้าระหว่างเกม → <span class="hl-r">บล็อก</span></li>
+        <li>นาฬิกา → <span class="hl-g">ควบคุมที่เซิร์ฟเวอร์</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="quote">
+    "ถ้าไม่ตัดสินใจก่อน — ตอน code เสร็จแล้ว Host หลุดออก เกมจะค้างโดยไม่มีใครรู้ว่าต้องทำอะไร"
+  </div>
+</section>
+
+<!-- ══════════════ SLIDE 6 — AI WORKFLOW: BUILD ══════════════ -->
+<section>
+  <div class="section-label">AI Workflow · Part 2</div>
+  <h2>เขียน Code + ตรวจสอบ</h2>
+
+  <p style="font-size:0.65em;color:rgba(255,255,255,0.7);margin-bottom:0.3em;">
+    ฟีเจอร์ที่ยากที่สุด: <span class="hl">นาฬิกาถอยหลังที่ควบคุมจากเซิร์ฟเวอร์</span>
+  </p>
+
+  <div class="step-row">
+    <span class="step-pill">บอก AI สิ่งที่ต้องการ</span>
+    <span class="step-arrow">→</span>
+    <span class="step-pill">AI เขียน code</span>
+    <span class="step-arrow">→</span>
+    <span class="step-pill">เราตรวจสอบ</span>
+    <span class="step-arrow">→</span>
+    <span class="step-pill">แก้ไข</span>
+    <span class="step-arrow">→</span>
+    <span class="step-pill">บันทึก</span>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h3>AI เสนอมา</h3>
+      <ul>
+        <li>ใช้ timer ของ .NET ส่งสัญญาณทุก 1 วินาที</li>
+        <li>กระจายไปทุกหน้าจอพร้อมกัน (broadcast)</li>
+        <li>หยุดทันทีเมื่อทุก Player ตอบแล้ว</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>เราตรวจพบและแก้เพิ่ม</h3>
+      <ul>
+        <li>มีโอกาส timer ทำงานซ้อนกัน (race condition) — เพิ่มการล็อกป้องกัน</li>
+        <li>ย้ายการส่งสัญญาณออกนอก block ที่ล็อกอยู่</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="quote">
+    "AI เสนอโครงสร้างที่ถูกทิศ — แต่ปัญหา timer ซ้อนกันต้องเราตรวจเจอและแก้เอง"
+  </div>
+</section>
+
+<!-- ══════════════ SLIDE 7 — AI WORKFLOW: DEBUG ══════════════ -->
+<section>
+  <div class="section-label">AI Workflow · Part 3</div>
+  <h2>แก้บัก (Debug)</h2>
+
+  <div class="cols">
+    <div class="col">
+      <div class="card" style="margin-bottom:0.5em;">
+        <h3>บักที่พบ</h3>
+        <p style="font-size:0.88em;color:rgba(255,255,255,0.8);margin:0;">
+          Player ตอบคำถามแล้ว — คะแนนบนหน้าจอ Host ไม่อัปเดตทันที
+        </p>
+      </div>
+      <div class="card">
+        <h3>สาเหตุที่แท้จริง</h3>
+        <p style="font-size:0.88em;color:rgba(255,255,255,0.8);margin:0;">
+          คำสั่งส่งข้อมูลสดถูกเรียกขณะระบบล็อกตัวเองอยู่ — ทำให้ติดขัด (deadlock) บางครั้ง
+        </p>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h3>วิธีแก้</h3>
+        <ul>
+          <li>ย้ายคำสั่งส่งข้อมูลออกมาก่อนจะล็อก</li>
+          <li>ล็อกเฉพาะส่วนที่เปลี่ยนสถานะเกมเท่านั้น</li>
+        </ul>
+        <br>
+        <h3>บทเรียน</h3>
+        <ul>
+          <li>AI แก้ผิดในครั้งแรก</li>
+          <li>เราต้องชี้แนะให้หาสาเหตุที่แท้จริง</li>
+          <li>ใช้ <code>/gsd-debug</code> ช่วยคิดอย่างเป็นระบบ</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ SLIDE 8 — LEARNINGS ══════════════ -->
+<section>
+  <div class="section-label">Learnings</div>
+  <h2>บทเรียนจากการทำงานกับ AI</h2>
+
+  <div class="cols">
+    <div class="col">
+      <p style="font-size:0.63em;color:#92f773;font-weight:700;margin-bottom:0.18em;">AI ทำได้ดี</p>
+      <ul class="check-list">
+        <li class="ok">ออกแบบโครงสร้างเกมได้ครบถ้วน</li>
+        <li class="ok">จัดหน้าตา UI ได้รวดเร็ว</li>
+        <li class="ok">เขียน logic นำเข้า/ส่งออก CSV</li>
+        <li class="ok">เสนอ confetti เอง โดยไม่ได้สั่ง!</li>
+        <li class="ok">ออกแบบระบบนาฬิกาได้ถูกทิศทาง</li>
+      </ul>
+    </div>
+    <div class="col">
+      <p style="font-size:0.63em;color:#ff8099;font-weight:700;margin-bottom:0.18em;">ต้องแก้เอง</p>
+      <ul class="check-list">
+        <li class="bad">timer ทำงานซ้อนกัน (race condition)</li>
+        <li class="bad">ส่งข้อมูลผิดกลุ่ม (SignalR group scope)</li>
+        <li class="bad">นาฬิกาเดินผิดจังหวะ 1 tick</li>
+        <li class="bad">ช่องโหว่ด้านความปลอดภัย</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top:0.55em;padding:0.5em 0.8em;background:rgba(226,27,60,0.12);border:1px solid rgba(226,27,60,0.3);border-radius:10px;">
+    <p style="font-size:0.6em;font-weight:700;color:#ff8099;margin:0 0 0.28em;">🔒 Security Review — OWASP Top 10</p>
+    <ul class="check-list" style="font-size:0.63em;">
+      <li class="bad">ไม่ตรวจสอบค่าเวลา CSV → แก้: จำกัดให้เลือกได้เฉพาะ 5, 10, 15, 20, 30, 60 วินาที</li>
+      <li class="bad">แสดง error ดิบให้ผู้ใช้เห็น → แก้: เปลี่ยนเป็นข้อความกลางที่ไม่เปิดเผยระบบ</li>
+      <li class="ok">SQL injection — ไม่มีฐานข้อมูล ใช้หน่วยความจำล้วน</li>
+      <li class="ok">XSS — Blazor แปลง output อัตโนมัติทุกจุด</li>
+      <li class="ok">ข้อมูลลับฝังใน code — ไม่พบ</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ══════════════ SLIDE 9 — Q&A ══════════════ -->
+<section style="text-align:center !important;">
+  <div style="margin-bottom:0.55em;">
+    <div class="logo-text" style="font-size:2.2em;">VibeCheck</div>
+  </div>
+
+  <div style="margin:0.5em auto;display:inline-block;">
+    <p style="font-size:0.62em;color:rgba(255,255,255,0.55);margin-bottom:0.3em;">ทดลองใช้ได้เลย</p>
+    <a href="https://vibecheck-jck0.onrender.com/" target="_blank" class="url-pill" style="font-size:0.85em;">
+      vibecheck-jck0.onrender.com
+    </a>
+  </div>
+
+  <div style="font-size:0.56em;color:rgba(255,255,255,0.4);margin-top:0.6em;">
+    .NET 10 · Blazor Server · SignalR · Docker · Render.com<br>
+    กลุ่ม 1 · AI-Accelerated Software Development Workshop
+  </div>
+
+  <h2 style="text-align:center;font-size:1.8em;margin-top:0.5em;">Q&A</h2>
+</section>
+
+</div><!-- /slides -->
+</div><!-- /reveal -->
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>
+Reveal.initialize({
+  hash: true,
+  progress: true,
+  controls: true,
+  slideNumber: true,
+  transition: 'slide',
+  transitionSpeed: 'fast',
+  backgroundTransition: 'fade',
+  width: 1280,
+  height: 720,
+  margin: 0.05,
+});
+
+Reveal.on('ready', () => {
+  document.querySelectorAll('.reveal .slides section').forEach(slide => {
+    const footer = document.createElement('div');
+    footer.className = 'slide-footer';
+    footer.innerHTML = 'VibeCheck &nbsp;·&nbsp; Real-Time Classroom Quiz Platform &nbsp;·&nbsp; AI-Accelerated Software Development Workshop';
+    slide.appendChild(footer);
+  });
+});
+</script>
+</body>
+</html>
